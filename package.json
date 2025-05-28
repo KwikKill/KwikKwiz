@@ -78,6 +78,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/react-beautiful-dnd": "^13.1.8",
     "@types/uuid": "^9.0.7"
   }
 }

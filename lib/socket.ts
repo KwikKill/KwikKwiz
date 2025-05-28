@@ -1,4 +1,11 @@
 import { Server as HTTPServer } from 'http';
+
+// Extend the HTTPServer type to include the 'io' property
+declare module 'http' {
+  interface Server {
+    io?: IOServer;
+  }
+}
 import { Server as IOServer } from 'socket.io';
 import { NextApiRequest } from 'next';
 import { NextApiResponse } from 'next';
@@ -22,13 +29,14 @@ export type NextApiResponseWithSocket = NextApiResponse & {
 export const sessionStates = new Map<string, SessionState>();
 
 export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSocket) {
-  if (!res.socket.server.io) {
+  if (!res.socket.server?.io) {
     const io = new IOServer(res.socket.server);
+    res.socket.server = res.socket.server ?? ({} as HTTPServer);
     res.socket.server.io = io;
 
     io.on('connection', (socket) => {
       const userId = socket.handshake.auth.userId;
-      
+
       if (!userId) {
         socket.disconnect();
         return;
@@ -67,7 +75,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
           // Initialize session state if not exists
           if (!sessionStates.has(sessionId)) {
             const participants = new Map();
-            
+
             session.participants.forEach((participant) => {
               participants.set(participant.userId, {
                 id: participant.userId,
@@ -123,7 +131,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
       socket.on('select-question', async (data: { sessionId: string; questionId: string }) => {
         try {
           const { sessionId, questionId } = data;
-          
+
           // Check if user is the host
           const session = await prisma.quizSession.findUnique({
             where: { id: sessionId },
@@ -157,11 +165,11 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
           if (sessionState) {
             sessionState.currentQuestion = question;
             sessionState.status = 'active';
-            
+
             // Update session in database
             await prisma.quizSession.update({
               where: { id: sessionId },
-              data: { 
+              data: {
                 status: 'ACTIVE',
                 currentQuestionId: questionId,
                 startedAt: { set: new Date() },
@@ -189,7 +197,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
       socket.on('submit-answer', async (data: { sessionId: string; questionId: string; answer: string }) => {
         try {
           const { sessionId, questionId, answer } = data;
-          
+
           const sessionState = sessionStates.get(sessionId);
           if (!sessionState || sessionState.status !== 'active') {
             socket.emit('error', { message: 'Cannot submit answer at this time' });
@@ -202,7 +210,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
           }
 
           const questionAnswers = sessionState.answers.get(questionId)!;
-          
+
           // Store the answer
           questionAnswers.set(userId, {
             answer,
@@ -244,7 +252,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
 
           // Acknowledge receipt
           socket.emit('answer-received', { questionId });
-          
+
           // Notify host
           socket.to(sessionId).emit('participant-answered', {
             participantId: userId,
@@ -261,7 +269,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
       socket.on('start-correction', async (data: { sessionId: string }) => {
         try {
           const { sessionId } = data;
-          
+
           // Check if user is the host
           const session = await prisma.quizSession.findUnique({
             where: { id: sessionId },
@@ -277,7 +285,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
           const sessionState = sessionStates.get(sessionId);
           if (sessionState) {
             sessionState.status = 'correction';
-            
+
             // Update session in database
             await prisma.quizSession.update({
               where: { id: sessionId },
@@ -294,7 +302,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
       });
 
       // Grade answer
-      socket.on('grade-answer', async (data: { 
+      socket.on('grade-answer', async (data: {
         sessionId: string;
         questionId: string;
         userId: string;
@@ -303,7 +311,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
       }) => {
         try {
           const { sessionId, questionId, userId: answeredUserId, isCorrect, points } = data;
-          
+
           // Check if user is the host
           const session = await prisma.quizSession.findUnique({
             where: { id: sessionId },
@@ -379,7 +387,7 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
       socket.on('end-session', async (data: { sessionId: string }) => {
         try {
           const { sessionId } = data;
-          
+
           // Check if user is the host
           const session = await prisma.quizSession.findUnique({
             where: { id: sessionId },
@@ -395,11 +403,11 @@ export function initSocketServer(req: NextApiRequest, res: NextApiResponseWithSo
           const sessionState = sessionStates.get(sessionId);
           if (sessionState) {
             sessionState.status = 'completed';
-            
+
             // Update session in database
             await prisma.quizSession.update({
               where: { id: sessionId },
-              data: { 
+              data: {
                 status: 'COMPLETED',
                 endedAt: new Date(),
               },

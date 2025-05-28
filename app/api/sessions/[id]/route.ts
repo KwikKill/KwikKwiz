@@ -5,17 +5,18 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   try {
-    const sessionId = params.id;
-    
+    const sessionId = resolvedParams.id;
+
     const quizSession = await prisma.quizSession.findUnique({
       where: { id: sessionId },
       include: {
@@ -52,15 +53,15 @@ export async function GET(
         },
       },
     });
-    
+
     if (!quizSession) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
-    
+
     // Check if user is a participant or host
     const isParticipant = quizSession.participants.some(p => p.userId === session.user?.id);
     const isHost = quizSession.hostId === session.user?.id;
-    
+
     if (!isParticipant && !isHost) {
       // Add user as a participant
       await prisma.participation.create({
@@ -70,7 +71,7 @@ export async function GET(
         },
       });
     }
-    
+
     return NextResponse.json(quizSession);
   } catch (error) {
     console.error("Error fetching session:", error);

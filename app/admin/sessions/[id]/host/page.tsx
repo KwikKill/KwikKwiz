@@ -33,7 +33,7 @@ interface QuizSessionDetails {
   code: string;
   quizId: string;
   hostId: string;
-  status: string;
+  status: 'waiting' | 'active' | 'correction' | 'completed';
   quiz: {
     id: string;
     name: string;
@@ -42,16 +42,17 @@ interface QuizSessionDetails {
   };
 }
 
-export default function HostSessionPage({ params }: { params: { id: string } }) {
-  const sessionId = params.id;
+export default async function HostSessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  const sessionId = resolvedParams.id;
   const router = useRouter();
   const { data: authSession } = useSession();
   const { toast } = useToast();
-  
+
   const [quizSession, setQuizSession] = useState<QuizSessionDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState("questions");
-  
+
   const {
     status,
     currentQuestion,
@@ -76,7 +77,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
         })
         .then((data) => {
           setQuizSession(data);
-          
+
           // Check if user is the host
           if (data.hostId !== authSession.user?.id) {
             toast({
@@ -86,7 +87,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
             });
             router.push(`/session/${sessionId}`);
           }
-          
+
           setIsLoading(false);
         })
         .catch((error) => {
@@ -103,7 +104,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
 
   const handleCopySessionCode = () => {
     if (!quizSession) return;
-    
+
     navigator.clipboard.writeText(quizSession.code);
     toast({
       title: "Session code copied",
@@ -152,14 +153,14 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
               <h1 className="text-2xl font-bold">{quizSession.quiz.name}</h1>
               <p className="text-muted-foreground">Host Interface</p>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Badge variant={isConnected ? "outline" : "destructive"}>
                 {isConnected ? "Connected" : "Disconnected"}
               </Badge>
               <Badge variant="secondary">{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={handleCopySessionCode}
               >
@@ -168,14 +169,14 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
               </Button>
             </div>
           </div>
-          
+
           <Tabs defaultValue="questions" value={currentTab} onValueChange={setCurrentTab}>
             <TabsList className="grid grid-cols-3 mb-4">
               <TabsTrigger value="questions">Questions</TabsTrigger>
               <TabsTrigger value="participants">Participants</TabsTrigger>
               <TabsTrigger value="responses">Responses</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="questions" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium">Quiz Questions</h2>
@@ -183,7 +184,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                   {quizSession.quiz.questions.length} Questions
                 </Badge>
               </div>
-              
+
               <ScrollArea className="h-[60vh]">
                 <div className="space-y-4">
                   {quizSession.quiz.questions.map((question) => (
@@ -197,19 +198,19 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                         </div>
                         <CardTitle className="text-base mt-2">{question.text}</CardTitle>
                       </CardHeader>
-                      
+
                       {question.imageUrl && (
                         <div className="px-4">
                           <div className="w-full h-40 bg-muted rounded-md flex items-center justify-center">
-                            <img 
-                              src={question.imageUrl} 
-                              alt="Question" 
-                              className="max-w-full max-h-full object-contain" 
+                            <img
+                              src={question.imageUrl}
+                              alt="Question"
+                              className="max-w-full max-h-full object-contain"
                             />
                           </div>
                         </div>
                       )}
-                      
+
                       {question.type === 'MULTIPLE_CHOICE' && (
                         <CardContent className="p-4 pt-2">
                           <div className="space-y-2 mt-2">
@@ -224,9 +225,9 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                           </div>
                         </CardContent>
                       )}
-                      
+
                       <CardFooter className="p-4 pt-0">
-                        <Button 
+                        <Button
                           onClick={() => handleSelectQuestion(question.id)}
                           className="w-full"
                           disabled={currentQuestion?.id === question.id}
@@ -236,13 +237,13 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                       </CardFooter>
                     </Card>
                   ))}
-                  
+
                   {quizSession.quiz.questions.length === 0 && (
                     <div className="text-center py-10">
                       <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
                       <p className="mt-2 text-muted-foreground">No questions in this quiz</p>
-                      <Button 
-                        variant="link" 
+                      <Button
+                        variant="link"
                         onClick={() => router.push(`/admin/quizzes/${quizSession.quizId}`)}
                         className="mt-2"
                       >
@@ -253,7 +254,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                 </div>
               </ScrollArea>
             </TabsContent>
-            
+
             <TabsContent value="participants" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium">Participants</h2>
@@ -261,13 +262,13 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                   {participants.length} {participants.length === 1 ? 'Participant' : 'Participants'}
                 </Badge>
               </div>
-              
+
               <ScrollArea className="h-[60vh]">
                 {participants.length > 0 ? (
                   <div className="space-y-2">
                     {participants.map((participant) => (
-                      <div 
-                        key={participant.id} 
+                      <div
+                        key={participant.id}
                         className="flex items-center justify-between p-3 border rounded-md"
                       >
                         <div className="flex items-center gap-2">
@@ -276,11 +277,11 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                           </div>
                           <span>{participant.name}</span>
                         </div>
-                        
+
                         {currentQuestion && (
                           <div>
                             {answers.some(a => a.userId === participant.id && a.questionId === currentQuestion.id) ? (
-                              <Badge variant="outline\" className="bg-green-50">
+                              <Badge variant="outline" className="bg-green-50">
                                 <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
                                 Answered
                               </Badge>
@@ -302,9 +303,9 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                     <div className="mt-4 p-4 bg-muted rounded-md max-w-md mx-auto">
                       <p className="text-sm font-medium">Share this code with participants:</p>
                       <p className="mt-1 text-xl font-mono tracking-widest text-center">{quizSession.code}</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="mt-2 w-full"
                         onClick={handleCopySessionCode}
                       >
@@ -316,13 +317,13 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                 )}
               </ScrollArea>
             </TabsContent>
-            
+
             <TabsContent value="responses" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium">Responses</h2>
                 <div className="flex gap-2">
                   {status === 'active' && (
-                    <Button 
+                    <Button
                       onClick={startCorrection}
                       size="sm"
                     >
@@ -330,7 +331,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                     </Button>
                   )}
                   {status === 'correction' && (
-                    <Button 
+                    <Button
                       onClick={endSession}
                       size="sm"
                       variant="destructive"
@@ -340,7 +341,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                   )}
                 </div>
               </div>
-              
+
               <ScrollArea className="h-[60vh]">
                 {status === 'completed' ? (
                   <div className="space-y-4">
@@ -349,7 +350,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                         <Trophy className="h-5 w-5 text-primary" />
                         Final Results
                       </h3>
-                      
+
                       <div className="mt-4 border rounded-md overflow-hidden">
                         <table className="w-full">
                           <thead className="bg-background">
@@ -378,7 +379,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                       <h3 className="font-medium">Current Question</h3>
                       <p className="mt-1">{currentQuestion.text}</p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       {answers
                         .filter(a => a.questionId === currentQuestion.id)
@@ -412,13 +413,13 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                               </CardHeader>
                               <CardContent className="py-2 px-4">
                                 <p className="text-sm">
-                                  {status === 'correction' || status === 'completed' ? answer.answer : '(Answer hidden until correction phase)'}
+                                  {status === 'correction' ? answer.answer : '(Answer hidden until correction phase)'}
                                 </p>
                               </CardContent>
                             </Card>
                           );
                         })}
-                      
+
                       {answers.filter(a => a.questionId === currentQuestion.id).length === 0 && (
                         <div className="text-center py-8">
                           <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
@@ -431,8 +432,8 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                   <div className="text-center py-10">
                     <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
                     <p className="mt-2 text-muted-foreground">No question selected</p>
-                    <Button 
-                      variant="link" 
+                    <Button
+                      variant="link"
                       onClick={() => setCurrentTab("questions")}
                       className="mt-2"
                     >
@@ -444,7 +445,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
             </TabsContent>
           </Tabs>
         </div>
-        
+
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -458,8 +459,8 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                     <div className="bg-muted px-3 py-2 rounded-l-md border-y border-l font-mono tracking-wider flex-1 text-center">
                       {quizSession.code}
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="rounded-l-none"
                       onClick={handleCopySessionCode}
                     >
@@ -467,7 +468,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Status</label>
                   <div className="bg-muted p-2 rounded-md flex justify-between items-center">
@@ -477,14 +478,14 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                     </Badge>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Participants</label>
                   <div className="bg-muted p-2 rounded-md">
                     <div className="flex items-center justify-between">
                       <span>{participants.length}</span>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => setCurrentTab("participants")}
                       >
@@ -493,7 +494,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                     </div>
                   </div>
                 </div>
-                
+
                 {currentQuestion && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Current Question</label>
@@ -503,8 +504,8 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                         <Badge variant="outline">
                           {currentQuestion.type === 'MULTIPLE_CHOICE' ? 'Multiple Choice' : 'Free Answer'}
                         </Badge>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => setCurrentTab("responses")}
                         >
@@ -518,16 +519,16 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
             </CardContent>
             <CardFooter className="flex flex-col gap-2">
               {status === 'active' && (
-                <Button 
+                <Button
                   onClick={startCorrection}
                   className="w-full"
                 >
                   Start Correction Round
                 </Button>
               )}
-              
+
               {status === 'correction' && (
-                <Button 
+                <Button
                   onClick={endSession}
                   className="w-full"
                   variant="destructive"
@@ -535,9 +536,9 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
                   End Session & Show Results
                 </Button>
               )}
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => router.push(`/session/${sessionId}`)}
               >
@@ -545,7 +546,7 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
               </Button>
             </CardFooter>
           </Card>
-          
+
           {status === 'completed' && (
             <Card>
               <CardHeader>
@@ -557,8 +558,8 @@ export default function HostSessionPage({ params }: { params: { id: string } }) 
               <CardContent>
                 <div className="space-y-2">
                   {leaderboard.slice(0, 5).map((entry, index) => (
-                    <div 
-                      key={entry.userId} 
+                    <div
+                      key={entry.userId}
                       className={`flex items-center justify-between p-2 rounded-md ${index === 0 ? 'bg-primary/10 border border-primary/30' : 'border'}`}
                     >
                       <div className="flex items-center gap-2">

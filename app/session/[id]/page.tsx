@@ -14,8 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Users, Trophy, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
-export default function SessionPage({ params }: { params: { id: string } }) {
-  const sessionId = params.id;
+export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  const sessionId = resolvedParams.id;
   const router = useRouter();
   const { data: authSession, status: authStatus } = useSession();
   const [isHost, setIsHost] = useState(false);
@@ -127,7 +128,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             <div className="text-sm font-medium text-muted-foreground">Session Code:</div>
             <div className="text-3xl font-bold tracking-widest">{quizDetails.code}</div>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium flex items-center gap-2">
@@ -136,7 +137,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
               </h3>
               <Badge variant="outline">{isConnected ? 'Connected' : 'Connecting...'}</Badge>
             </div>
-            
+
             <div className="bg-card border rounded-md p-4 max-h-40 overflow-y-auto">
               {participants.length > 0 ? (
                 <ul className="space-y-2">
@@ -154,7 +155,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
         </CardContent>
         {isHost && (
           <CardFooter>
-            <Button 
+            <Button
               onClick={() => router.push(`/admin/sessions/${sessionId}/host`)}
               className="w-full"
             >
@@ -179,25 +180,25 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             </div>
             <CardTitle className="text-xl mt-2">{currentQuestion.text}</CardTitle>
           </CardHeader>
-          
+
           {currentQuestion.imageUrl && (
             <div className="px-6">
               <div className="w-full h-48 md:h-64 bg-muted rounded-md flex items-center justify-center">
-                <img 
-                  src={currentQuestion.imageUrl} 
-                  alt="Question" 
-                  className="max-w-full max-h-full object-contain" 
+                <img
+                  src={currentQuestion.imageUrl}
+                  alt="Question"
+                  className="max-w-full max-h-full object-contain"
                 />
               </div>
             </div>
           )}
-          
+
           <CardContent className="pt-6">
             {!isHost && (
               <>
                 {currentQuestion.type === 'MULTIPLE_CHOICE' ? (
-                  <RadioGroup 
-                    value={selectedAnswer} 
+                  <RadioGroup
+                    value={selectedAnswer}
                     onValueChange={setSelectedAnswer}
                     disabled={hasSubmitted}
                   >
@@ -223,23 +224,23 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                 )}
               </>
             )}
-            
+
             {isHost && (
               <div className="p-4 bg-muted rounded-md">
                 <p className="text-center text-muted-foreground">
                   {answers.filter(a => a.questionId === currentQuestion.id).length} of {participants.length} answers received
                 </p>
-                <Progress 
-                  className="mt-2" 
-                  value={(answers.filter(a => a.questionId === currentQuestion.id).length / participants.length) * 100} 
+                <Progress
+                  className="mt-2"
+                  value={(answers.filter(a => a.questionId === currentQuestion.id).length / participants.length) * 100}
                 />
               </div>
             )}
           </CardContent>
-          
+
           <CardFooter>
             {!isHost && (
-              <Button 
+              <Button
                 onClick={() => submitAnswer(currentQuestion.id, selectedAnswer)}
                 className="w-full"
                 disabled={!selectedAnswer || hasSubmitted}
@@ -247,9 +248,9 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                 {hasSubmitted ? 'Answer Submitted' : 'Submit Answer'}
               </Button>
             )}
-            
+
             {isHost && (
-              <Button 
+              <Button
                 onClick={startCorrection}
                 className="w-full"
               >
@@ -266,7 +267,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
           </CardHeader>
         </Card>
       )}
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="md:col-span-2">
           <CardHeader className="pb-2">
@@ -289,7 +290,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-2">
             <h3 className="text-sm font-medium">Connected Users</h3>
@@ -326,39 +327,39 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             {isHost ? 'Review and Score Answers' : 'Waiting for Results'}
           </CardTitle>
           <CardDescription>
-            {isHost 
-              ? 'Review each answer and assign points based on correctness' 
+            {isHost
+              ? 'Review each answer and assign points based on correctness'
               : 'The host is reviewing all answers and assigning points'}
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-4">
           {isHost && (
             <>
               <div className="flex gap-2 pb-2 border-b">
-                <Button 
-                  variant={correctionFilter === 'all' ? 'default' : 'outline'} 
+                <Button
+                  variant={correctionFilter === 'all' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setCorrectionFilter('all')}
                 >
                   All
                 </Button>
-                <Button 
-                  variant={correctionFilter === 'pending' ? 'default' : 'outline'} 
+                <Button
+                  variant={correctionFilter === 'pending' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setCorrectionFilter('pending')}
                 >
                   Pending
                 </Button>
-                <Button 
-                  variant={correctionFilter === 'graded' ? 'default' : 'outline'} 
+                <Button
+                  variant={correctionFilter === 'graded' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setCorrectionFilter('graded')}
                 >
                   Graded
                 </Button>
               </div>
-              
+
               <div className="space-y-4 max-h-[500px] overflow-y-auto">
                 {answers
                   .filter(answer => {
@@ -374,7 +375,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                           <div className="flex justify-between items-center">
                             <h4 className="text-sm font-medium">{participant?.name || 'Unknown User'}</h4>
                             {answer.isCorrect !== undefined && (
-                              <Badge variant={answer.isCorrect ? 'success' : 'destructive'}>
+                              <Badge variant={answer.isCorrect ? 'default' : 'destructive'}>
                                 {answer.isCorrect ? 'Correct' : 'Incorrect'}
                               </Badge>
                             )}
@@ -387,15 +388,15 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                           <CardFooter className="pt-0 px-4 pb-3">
                             <div className="flex flex-col w-full gap-2">
                               <div className="flex gap-2">
-                                <Button 
-                                  variant="outline" 
+                                <Button
+                                  variant="outline"
                                   className="flex-1 border-red-200 hover:bg-red-50"
                                   onClick={() => gradeAnswer(answer.questionId, answer.userId, false, 0)}
                                 >
                                   <XCircle className="h-4 w-4 mr-1 text-red-500" />
                                   Incorrect (0 pts)
                                 </Button>
-                                <Button 
+                                <Button
                                   variant="outline"
                                   className="flex-1 border-green-200 hover:bg-green-50"
                                   onClick={() => gradeAnswer(answer.questionId, answer.userId, true, 1)}
@@ -405,7 +406,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                                 </Button>
                               </div>
                               <div className="flex gap-2">
-                                <Button 
+                                <Button
                                   variant="outline"
                                   size="sm"
                                   className="flex-1"
@@ -413,7 +414,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                                 >
                                   2 pts
                                 </Button>
-                                <Button 
+                                <Button
                                   variant="outline"
                                   size="sm"
                                   className="flex-1"
@@ -428,7 +429,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                       </Card>
                     );
                   })}
-                
+
                 {answers.length === 0 && (
                   <div className="text-center py-8">
                     <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
@@ -438,7 +439,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
               </div>
             </>
           )}
-          
+
           {!isHost && (
             <div className="py-10 text-center">
               <div className="h-10 w-10 mx-auto mb-4 animate-bounce rounded-full border-4 border-primary border-t-transparent"></div>
@@ -452,10 +453,10 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             </div>
           )}
         </CardContent>
-        
+
         {isHost && (
           <CardFooter>
-            <Button 
+            <Button
               onClick={endSession}
               className="w-full"
             >
@@ -479,7 +480,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             The quiz session has ended. Here are the final results.
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {leaderboard.length > 0 ? (
             <div className="space-y-4">
@@ -489,10 +490,10 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                     <div className="flex flex-col items-center">
                       <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-2">
                         {leaderboard[1].image ? (
-                          <img 
-                            src={leaderboard[1].image} 
-                            alt={leaderboard[1].name} 
-                            className="w-14 h-14 rounded-full" 
+                          <img
+                            src={leaderboard[1].image}
+                            alt={leaderboard[1].name}
+                            className="w-14 h-14 rounded-full"
                           />
                         ) : (
                           <span className="text-xl font-bold">2</span>
@@ -506,15 +507,15 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                   )}
-                  
+
                   {leaderboard[0] && (
                     <div className="flex flex-col items-center">
                       <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center mb-2">
                         {leaderboard[0].image ? (
-                          <img 
-                            src={leaderboard[0].image} 
-                            alt={leaderboard[0].name} 
-                            className="w-18 h-18 rounded-full" 
+                          <img
+                            src={leaderboard[0].image}
+                            alt={leaderboard[0].name}
+                            className="w-18 h-18 rounded-full"
                           />
                         ) : (
                           <span className="text-2xl font-bold text-primary-foreground">1</span>
@@ -528,15 +529,15 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                       </div>
                     </div>
                   )}
-                  
+
                   {leaderboard[2] && (
                     <div className="flex flex-col items-center">
                       <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-2">
                         {leaderboard[2].image ? (
-                          <img 
-                            src={leaderboard[2].image} 
-                            alt={leaderboard[2].name} 
-                            className="w-12 h-12 rounded-full" 
+                          <img
+                            src={leaderboard[2].image}
+                            alt={leaderboard[2].name}
+                            className="w-12 h-12 rounded-full"
                           />
                         ) : (
                           <span className="text-lg font-bold">3</span>
@@ -552,7 +553,7 @@ export default function SessionPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
               )}
-              
+
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-muted">
@@ -581,9 +582,9 @@ export default function SessionPage({ params }: { params: { id: string } }) {
             </div>
           )}
         </CardContent>
-        
+
         <CardFooter>
-          <Button 
+          <Button
             onClick={() => router.push('/dashboard')}
             className="w-full"
           >

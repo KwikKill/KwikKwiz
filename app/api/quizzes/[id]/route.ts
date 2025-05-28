@@ -5,25 +5,26 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   try {
-    const quizId = params.id;
-    
+    const quizId = resolvedParams.id;
+
     const quiz = await prisma.quiz.findUnique({
       where: { id: quizId },
     });
-    
+
     if (!quiz) {
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
-    
+
     // Check if user is the author or an admin
     if (quiz.authorId !== session.user.id && !session.user.isAdmin) {
       return NextResponse.json(
@@ -31,7 +32,7 @@ export async function GET(
         { status: 403 }
       );
     }
-    
+
     return NextResponse.json(quiz);
   } catch (error) {
     console.error("Error fetching quiz:", error);
@@ -44,41 +45,42 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   try {
-    const quizId = params.id;
+    const quizId = resolvedParams.id;
     const { name, description } = await request.json();
-    
+
     if (!name) {
       return NextResponse.json(
         { error: "Quiz name is required" },
         { status: 400 }
       );
     }
-    
+
     // Check if quiz exists and user is the author
     const quiz = await prisma.quiz.findUnique({
       where: { id: quizId },
     });
-    
+
     if (!quiz) {
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
-    
+
     if (quiz.authorId !== session.user.id) {
       return NextResponse.json(
         { error: "You don't have permission to update this quiz" },
         { status: 403 }
       );
     }
-    
+
     // Update quiz
     const updatedQuiz = await prisma.quiz.update({
       where: { id: quizId },
@@ -87,7 +89,7 @@ export async function PUT(
         description,
       },
     });
-    
+
     return NextResponse.json(updatedQuiz);
   } catch (error) {
     console.error("Error updating quiz:", error);
@@ -100,33 +102,34 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   try {
-    const quizId = params.id;
-    
+    const quizId = resolvedParams.id;
+
     // Check if quiz exists and user is the author
     const quiz = await prisma.quiz.findUnique({
       where: { id: quizId },
     });
-    
+
     if (!quiz) {
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
-    
+
     if (quiz.authorId !== session.user.id) {
       return NextResponse.json(
         { error: "You don't have permission to delete this quiz" },
         { status: 403 }
       );
     }
-    
+
     // Check if quiz has active sessions
     const activeSessions = await prisma.quizSession.findMany({
       where: {
@@ -136,19 +139,19 @@ export async function DELETE(
         },
       },
     });
-    
+
     if (activeSessions.length > 0) {
       return NextResponse.json(
         { error: "Cannot delete quiz with active sessions" },
         { status: 400 }
       );
     }
-    
+
     // Delete quiz and all related questions
     await prisma.quiz.delete({
       where: { id: quizId },
     });
-    
+
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error("Error deleting quiz:", error);

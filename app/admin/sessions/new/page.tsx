@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +27,7 @@ interface Quiz {
   description: string | null;
 }
 
-export default function CreateSessionPage() {
+function CreateSessionContent() {
   const { data: session } = useSession();
   const [selectedQuizId, setSelectedQuizId] = useState<string>("");
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -36,7 +36,7 @@ export default function CreateSessionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  
+
   const preselectedQuizId = searchParams.get('quizId');
 
   useEffect(() => {
@@ -46,12 +46,12 @@ export default function CreateSessionPage() {
         .then((res) => res.json())
         .then((data) => {
           setQuizzes(data);
-          
+
           // Preselect quiz if ID is provided in URL
           if (preselectedQuizId && data.some((quiz: Quiz) => quiz.id === preselectedQuizId)) {
             setSelectedQuizId(preselectedQuizId);
           }
-          
+
           setIsLoading(false);
         })
         .catch((error) => {
@@ -70,9 +70,9 @@ export default function CreateSessionPage() {
       });
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch("/api/sessions", {
         method: "POST",
@@ -83,18 +83,18 @@ export default function CreateSessionPage() {
           quizId: selectedQuizId,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to create session");
       }
-      
+
       toast({
         title: "Session created successfully",
         description: `Session code: ${data.code}`,
       });
-      
+
       // Redirect to the session host page
       router.push(`/admin/sessions/${data.id}/host`);
     } catch (error) {
@@ -181,8 +181,8 @@ export default function CreateSessionPage() {
                 <p className="text-sm text-muted-foreground text-center">
                   You haven't created any quizzes yet.
                 </p>
-                <Button 
-                  variant="link" 
+                <Button
+                  variant="link"
                   className="w-full mt-2"
                   onClick={() => router.push('/admin/quizzes/new')}
                 >
@@ -193,9 +193,9 @@ export default function CreateSessionPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button 
+          <Button
             onClick={handleCreateSession}
-            className="w-full" 
+            className="w-full"
             disabled={isSubmitting || !selectedQuizId}
           >
             {isSubmitting ? (
@@ -210,5 +210,13 @@ export default function CreateSessionPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function CreateSessionPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CreateSessionContent />
+    </Suspense>
   );
 }

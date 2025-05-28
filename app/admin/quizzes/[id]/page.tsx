@@ -54,21 +54,22 @@ interface Question {
   order: number;
 }
 
-export default function EditQuizPage({ params }: { params: { id: string } }) {
-  const quizId = params.id;
+export default async function EditQuizPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  const quizId = resolvedParams.id;
   const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
-  
+
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   const [isQuizEditMode, setIsQuizEditMode] = useState(false);
   const [editedQuizName, setEditedQuizName] = useState("");
   const [editedQuizDescription, setEditedQuizDescription] = useState("");
-  
+
   const [isQuestionDialogOpen, setIsQuestionDialogOpen] = useState(false);
   const [isEditingQuestion, setIsEditingQuestion] = useState(false);
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
@@ -77,7 +78,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
   const [questionType, setQuestionType] = useState<'MULTIPLE_CHOICE' | 'FREE_ANSWER'>('MULTIPLE_CHOICE');
   const [questionOptions, setQuestionOptions] = useState<string[]>(["", "", "", ""]);
   const [correctAnswer, setCorrectAnswer] = useState("");
-  
+
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
 
@@ -95,7 +96,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
           setQuiz(data);
           setEditedQuizName(data.name);
           setEditedQuizDescription(data.description || "");
-          
+
           // Fetch questions
           return fetch(`/api/quizzes/${quizId}/questions`);
         })
@@ -130,9 +131,9 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
       });
       return;
     }
-    
+
     setIsSaving(true);
-    
+
     try {
       const response = await fetch(`/api/quizzes/${quizId}`, {
         method: "PUT",
@@ -144,16 +145,16 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
           description: editedQuizDescription.trim() || null,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to update quiz");
       }
-      
+
       setQuiz(data);
       setIsQuizEditMode(false);
-      
+
       toast({
         title: "Quiz updated",
         description: "Your quiz details have been updated",
@@ -178,7 +179,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
       });
       return false;
     }
-    
+
     if (questionType === 'MULTIPLE_CHOICE') {
       // Check if at least 2 options are provided
       const validOptions = questionOptions.filter(opt => opt.trim().length > 0);
@@ -191,19 +192,19 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
         return false;
       }
     }
-    
+
     return true;
   };
 
   const handleAddQuestion = async () => {
     if (!validateQuestionForm()) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       // Filter out empty options
       const validOptions = questionOptions.filter(opt => opt.trim().length > 0);
-      
+
       const response = await fetch(`/api/quizzes/${quizId}/questions`, {
         method: "POST",
         headers: {
@@ -218,20 +219,20 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
           order: questions.length, // Add to the end
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to add question");
       }
-      
+
       // Add new question to the list
       setQuestions([...questions, data]);
-      
+
       // Reset form
       resetQuestionForm();
       setIsQuestionDialogOpen(false);
-      
+
       toast({
         title: "Question added",
         description: "Your question has been added to the quiz",
@@ -249,13 +250,13 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
 
   const handleUpdateQuestion = async () => {
     if (!validateQuestionForm() || !currentQuestionId) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       // Filter out empty options
       const validOptions = questionOptions.filter(opt => opt.trim().length > 0);
-      
+
       const response = await fetch(`/api/quizzes/${quizId}/questions/${currentQuestionId}`, {
         method: "PUT",
         headers: {
@@ -269,22 +270,22 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
           correctAnswer: correctAnswer.trim() || null,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to update question");
       }
-      
+
       // Update question in the list
       setQuestions(
         questions.map(q => (q.id === currentQuestionId ? data : q))
       );
-      
+
       // Reset form
       resetQuestionForm();
       setIsQuestionDialogOpen(false);
-      
+
       toast({
         title: "Question updated",
         description: "Your question has been updated",
@@ -302,26 +303,26 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
 
   const handleDeleteQuestion = async () => {
     if (!questionToDelete) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       const response = await fetch(`/api/quizzes/${quizId}/questions/${questionToDelete}`, {
         method: "DELETE",
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || "Failed to delete question");
       }
-      
+
       // Remove question from the list
       setQuestions(questions.filter(q => q.id !== questionToDelete));
-      
+
       // Close dialog
       setIsDeleteDialogOpen(false);
       setQuestionToDelete(null);
-      
+
       toast({
         title: "Question deleted",
         description: "The question has been removed from your quiz",
@@ -339,25 +340,25 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
 
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
-    
+
     const startIndex = result.source.index;
     const endIndex = result.destination.index;
-    
+
     if (startIndex === endIndex) return;
-    
+
     const reorderedQuestions = Array.from(questions);
     const [removed] = reorderedQuestions.splice(startIndex, 1);
     reorderedQuestions.splice(endIndex, 0, removed);
-    
+
     // Update order property
     const updatedQuestions = reorderedQuestions.map((q, index) => ({
       ...q,
       order: index,
     }));
-    
+
     // Update UI immediately
     setQuestions(updatedQuestions);
-    
+
     // Save the new order to the database
     try {
       const response = await fetch(`/api/quizzes/${quizId}/questions/reorder`, {
@@ -372,7 +373,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
           })),
         }),
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || "Failed to reorder questions");
@@ -383,7 +384,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
         description: error instanceof Error ? error.message : "Failed to save the new order",
         variant: "destructive",
       });
-      
+
       // Revert to original order on error
       setQuestions(questions);
     }
@@ -537,8 +538,8 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
             {questions.length === 0 ? (
               <div className="text-center py-10">
                 <p className="text-muted-foreground">No questions added yet</p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={openAddQuestionDialog}
                   className="mt-4"
                 >
@@ -591,11 +592,11 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
                                       )}
                                     </div>
                                     <p className="text-sm font-medium mb-2">{question.text}</p>
-                                    
+
                                     {question.type === 'MULTIPLE_CHOICE' && (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                         {question.options.map((option, optIndex) => (
-                                          <div 
+                                          <div
                                             key={optIndex}
                                             className="text-xs border rounded-md p-2 flex items-center"
                                           >
@@ -609,7 +610,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
                                     )}
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex gap-1">
                                   <Button
                                     variant="ghost"
@@ -669,7 +670,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
                 : "Create a new question for your quiz"}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <label htmlFor="question-text" className="text-sm font-medium">
@@ -683,7 +684,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
                 rows={2}
               />
             </div>
-            
+
             <div className="grid gap-2">
               <label htmlFor="question-image" className="text-sm font-medium">
                 Image URL (Optional)
@@ -695,7 +696,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
                 placeholder="https://example.com/image.jpg"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <label htmlFor="question-type" className="text-sm font-medium">
                 Question Type
@@ -713,7 +714,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {questionType === 'MULTIPLE_CHOICE' && (
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Answer Options</label>
@@ -733,7 +734,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
             )}
-            
+
             <div className="grid gap-2">
               <label htmlFor="correct-answer" className="text-sm font-medium">
                 Correct Answer (Optional)
@@ -749,7 +750,7 @@ export default function EditQuizPage({ params }: { params: { id: string } }) {
               </p>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"
