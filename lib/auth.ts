@@ -17,12 +17,12 @@ export const authOptions: NextAuthOptions = {
       // Add the user ID to the session
       if (session.user) {
         session.user.id = user.id;
-        
+
         // Find the user in the database to check if they're an admin
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
         });
-        
+
         // Add isAdmin to the session
         session.user.isAdmin = dbUser?.isAdmin || false;
       }
@@ -31,21 +31,26 @@ export const authOptions: NextAuthOptions = {
     async signIn({ profile, user }) {
       if (profile && "id" in profile) {
         const discordId = profile.id as string;
-        
+
         // Check if the Discord ID is in the admin list
         const adminIds = process.env.ADMIN_IDS?.split(",") || [];
         const isAdmin = adminIds.includes(discordId);
-        
-        // Update the user with Discord ID and admin status
-        await prisma.user.update({
+
+        // Create or Update the user with Discord ID and admin status
+        await prisma.user.upsert({
           where: { id: user.id },
-          data: { 
+          update: {
             discordId,
-            isAdmin 
+            isAdmin
+          },
+          create: {
+            id: user.id, // Use the NextAuth user ID
+            discordId,
+            isAdmin
           },
         });
       }
-      
+
       return true;
     },
   },
