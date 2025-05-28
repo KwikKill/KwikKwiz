@@ -1,0 +1,9 @@
+# General
+.env
+
+# js
+node_modules
+
+# react
+.next
+

@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id             String           @id @default(cuid())
+  name           String?
+  email          String?          @unique
+  emailVerified  DateTime?
+  image          String?
+  discordId      String?          @unique
+  isAdmin        Boolean          @default(false)
+  accounts       Account[]
+  sessions       Session[]
+  createdQuizzes Quiz[]
+  quizSessions   QuizSession[]    @relation("HostedSessions")
+  participation  Participation[]
+  answers        PlayerAnswer[]
+}
+
+model Quiz {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  questions   Question[]
+  sessions    QuizSession[]
+}
+
+model Question {
+  id            String         @id @default(cuid())
+  quizId        String
+  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  text          String
+  imageUrl      String?
+  type          QuestionType
+  options       String[]
+  correctAnswer String?
+  order         Int
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  answers       PlayerAnswer[]
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  FREE_ANSWER
+}
+
+model QuizSession {
+  id            String          @id @default(cuid())
+  code          String          @unique
+  quizId        String
+  quiz          Quiz            @relation(fields: [quizId], references: [id])
+  hostId        String
+  host          User            @relation("HostedSessions", fields: [hostId], references: [id])
+  status        SessionStatus   @default(WAITING)
+  currentQuestionId String?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  participants  Participation[]
+  answers       PlayerAnswer[]
+}
+
+enum SessionStatus {
+  WAITING
+  ACTIVE
+  CORRECTION
+  COMPLETED
+}
+
+model Participation {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  joinedAt  DateTime    @default(now())
+  score     Int         @default(0)
+  answers   PlayerAnswer[]
+
+  @@unique([sessionId, userId])
+}
+
+model PlayerAnswer {
+  id            String      @id @default(cuid())
+  sessionId     String
+  session       QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question    @relation(fields: [questionId], references: [id])
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  participationId String
+  participation Participation @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  answer        String
+  isCorrect     Boolean?
+  points        Int         @default(0)
+  submittedAt   DateTime    @default(now())
+
+  @@unique([sessionId, questionId, userId])
+}
