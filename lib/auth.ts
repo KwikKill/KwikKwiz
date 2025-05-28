@@ -36,15 +36,10 @@ export const authOptions: NextAuthOptions = {
         const adminIds = process.env.ADMIN_IDS?.split(",") || [];
         const isAdmin = adminIds.includes(discordId);
 
-        // Create or Update the user with Discord ID and admin status
-        await prisma.user.upsert({
+        // Update the user with Discord ID and admin status
+        await prisma.user.update({
           where: { id: user.id },
-          update: {
-            discordId,
-            isAdmin
-          },
-          create: {
-            id: user.id, // Use the NextAuth user ID
+          data: {
             discordId,
             isAdmin
           },
