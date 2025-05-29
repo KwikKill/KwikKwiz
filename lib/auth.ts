@@ -13,19 +13,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
+    async session({ session, token, user }) {
       // Add the user ID to the session
       if (session.user) {
-        session.user.id = user.id;
+        session.user.id = token.id as string;
 
         // Find the user in the database to check if they're an admin
         const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
+          where: { id: token.id as string },
         });
 
         // Check if the Discord ID is in the admin list
         const adminIds = process.env.ADMIN_IDS?.split(",") || [];
-        const isAdmin = adminIds.includes(user.id);
+        const isAdmin = adminIds.includes(token.id as string);
 
         // Add isAdmin to the session
         session.user.isAdmin = isAdmin;
