@@ -23,8 +23,12 @@ export const authOptions: NextAuthOptions = {
           where: { id: user.id },
         });
 
+        // Check if the Discord ID is in the admin list
+        const adminIds = process.env.ADMIN_IDS?.split(",") || [];
+        const isAdmin = adminIds.includes(user.id);
+
         // Add isAdmin to the session
-        session.user.isAdmin = dbUser?.isAdmin || false;
+        session.user.isAdmin = isAdmin;
       }
       return session;
     },
@@ -33,20 +37,27 @@ export const authOptions: NextAuthOptions = {
         const discordId = profile.id as string;
 
         // Check if the Discord ID is in the admin list
-        const adminIds = process.env.ADMIN_IDS?.split(",") || [];
-        const isAdmin = adminIds.includes(discordId);
+        const authorizedIds = process.env.AUTHORIZED_IDS?.split(",") || [];
+        const isAuthorized = authorizedIds.includes(discordId);
 
-        // Update the user with Discord ID and admin status
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            discordId,
-            isAdmin
-          },
-        });
+        if (!isAuthorized) {
+          // If the user is not authorized, prevent sign-in
+          return false;
+        }
       }
 
       return true;
+    },
+    async jwt({ token, account, profile }) {
+      // Add the access token and user ID to the JWT token
+      if (account && profile) {
+        token.accessToken = account.access_token
+        if ("id" in profile) {
+          token.id = (profile as { id: string }).id;
+        }
+      }
+
+      return token
     },
   },
   pages: {
