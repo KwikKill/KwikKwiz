@@ -26,7 +26,7 @@ export default function CreateQuizPage() {
 
   const handleCreateQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!quizName.trim()) {
       toast({
         title: "Quiz name required",
@@ -35,9 +35,9 @@ export default function CreateQuizPage() {
       });
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch("/api/quizzes", {
         method: "POST",
@@ -49,18 +49,18 @@ export default function CreateQuizPage() {
           description: quizDescription.trim() || null,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to create quiz");
       }
-      
+
       toast({
         title: "Quiz created successfully",
         description: "Now you can add questions to your quiz",
       });
-      
+
       // Redirect to the quiz edit page
       router.push(`/admin/quizzes/${data.id}`);
     } catch (error) {
@@ -130,9 +130,9 @@ export default function CreateQuizPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isSubmitting}
             >
               {isSubmitting ? (

@@ -30,7 +30,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       reconnectionDelay: 1000,
       autoConnect: true,
       auth: {
-        userId: session.user.id,
+        userId: session.user.userId,
       },
     });
 

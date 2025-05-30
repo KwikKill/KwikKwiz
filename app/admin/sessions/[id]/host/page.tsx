@@ -42,9 +42,14 @@ interface QuizSessionDetails {
   };
 }
 
-export default async function HostSessionPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = await params;
-  const sessionId = resolvedParams.id;
+export default function HostSessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const [sessionId, setSessionId] = useState<string>("");
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setSessionId(resolvedParams.id);
+    });
+  }, [params]);
+
   const router = useRouter();
   const { data: authSession } = useSession();
   const { toast } = useToast();
@@ -79,7 +84,7 @@ export default async function HostSessionPage({ params }: { params: Promise<{ id
           setQuizSession(data);
 
           // Check if user is the host
-          if (data.hostId !== authSession.user?.id) {
+          if (data.hostId !== authSession.user?.userId) {
             toast({
               title: "Access Denied",
               description: "You are not the host of this session",
@@ -130,7 +135,7 @@ export default async function HostSessionPage({ params }: { params: Promise<{ id
 
   if (!quizSession) {
     return (
-      <div className="container py-10">
+      <div className="p-10">
         <Card>
           <CardHeader>
             <CardTitle>Session Not Found</CardTitle>
@@ -145,7 +150,7 @@ export default async function HostSessionPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="container py-10">
+    <div className="p-10">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -272,9 +277,11 @@ export default async function HostSessionPage({ params }: { params: Promise<{ id
                         className="flex items-center justify-between p-3 border rounded-md"
                       >
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-                            {participant.name?.charAt(0) || "U"}
-                          </div>
+                            <img
+                              src={participant.image || "/default-avatar.png"}
+                              alt={participant.name || "Unknown"}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
                           <span>{participant.name}</span>
                         </div>
 

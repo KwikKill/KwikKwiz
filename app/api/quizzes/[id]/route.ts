@@ -26,7 +26,7 @@ export async function GET(
     }
 
     // Check if user is the author or an admin
-    if (quiz.authorId !== session.user.id && !session.user.isAdmin) {
+    if (quiz.authorId !== session.user.userId && !session.user.isAdmin) {
       return NextResponse.json(
         { error: "You don't have permission to access this quiz" },
         { status: 403 }
@@ -74,7 +74,7 @@ export async function PUT(
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
 
-    if (quiz.authorId !== session.user.id) {
+    if (quiz.authorId !== session.user.userId) {
       return NextResponse.json(
         { error: "You don't have permission to update this quiz" },
         { status: 403 }
@@ -123,7 +123,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
 
-    if (quiz.authorId !== session.user.id) {
+    if (quiz.authorId !== session.user.userId) {
       return NextResponse.json(
         { error: "You don't have permission to delete this quiz" },
         { status: 403 }

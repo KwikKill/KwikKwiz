@@ -34,7 +34,7 @@ import {
   Droppable,
   Draggable,
   DropResult,
-} from "react-beautiful-dnd";
+} from "@hello-pangea/dnd";
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Edit, Trash2, Image, FlipVertical as DragVertical, Check, X } from "lucide-react";
 
@@ -54,9 +54,15 @@ interface Question {
   order: number;
 }
 
-export default async function EditQuizPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = await params;
-  const quizId = resolvedParams.id;
+export default function EditQuizPage({ params }: { params: Promise<{ id: string }> }) {
+  const [quizId, setQuizId] = useState<string>("");
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setQuizId(resolvedParams.id);
+    });
+  }, [params]);
+
+
   const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -459,7 +465,7 @@ export default async function EditQuizPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="container py-10">
+    <div className="p-10">
       <div className="max-w-4xl mx-auto space-y-6">
         <Card>
           <CardHeader>
@@ -549,7 +555,12 @@ export default async function EditQuizPage({ params }: { params: Promise<{ id: s
               </div>
             ) : (
               <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="questions">
+                <Droppable
+                  droppableId="questions"
+                  isDropDisabled={isSaving}
+                  isCombineEnabled={false}
+                  ignoreContainerClipping={true}
+                >
                   {(provided) => (
                     <div
                       {...provided.droppableProps}

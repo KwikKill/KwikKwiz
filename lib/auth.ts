@@ -19,13 +19,18 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
 
         // Find the user in the database to check if they're an admin
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
+        const dbUser = await prisma.account.findUnique({
+          where: { provider_providerAccountId: { provider: "discord", providerAccountId: token.id as string } },
         });
 
         // Check if the Discord ID is in the admin list
         const adminIds = process.env.ADMIN_IDS?.split(",") || [];
         const isAdmin = adminIds.includes(token.id as string);
+
+        // Get UserId
+        if (dbUser) {
+          session.user.userId = dbUser.userId;
+        }
 
         // Add isAdmin to the session
         session.user.isAdmin = isAdmin;
@@ -56,6 +61,10 @@ export const authOptions: NextAuthOptions = {
           token.id = (profile as { id: string }).id;
         }
       }
+
+      // Check if the user is an admin
+      const adminIds = process.env.ADMIN_IDS?.split(",") || [];
+      token.isAdmin = adminIds.includes(token.id as string);
 
       return token
     },

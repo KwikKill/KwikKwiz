@@ -14,9 +14,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Users, Trophy, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
-export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = await params;
-  const sessionId = resolvedParams.id;
+export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
+
+  const [sessionId, setSessionId] = useState<string>("");
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setSessionId(resolvedParams.id);
+    });
+  }, [params]);
+
   const router = useRouter();
   const { data: authSession, status: authStatus } = useSession();
   const [isHost, setIsHost] = useState(false);
@@ -79,7 +85,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
 
   if (!quizDetails) {
     return (
-      <div className="container py-10">
+      <div className="p-10">
         <Card>
           <CardHeader>
             <CardTitle>Session Not Found</CardTitle>
@@ -596,7 +602,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   );
 
   return (
-    <div className="container py-10">
+    <div className="p-10">
       {renderSessionContent()}
     </div>
   );

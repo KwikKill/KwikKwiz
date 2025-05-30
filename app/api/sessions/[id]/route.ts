@@ -18,7 +18,7 @@ export async function GET(
     const sessionId = resolvedParams.id;
 
     const quizSession = await prisma.quizSession.findUnique({
-      where: { id: sessionId },
+      where: { code: sessionId },
       include: {
         quiz: {
           select: {
@@ -59,15 +59,15 @@ export async function GET(
     }
 
     // Check if user is a participant or host
-    const isParticipant = quizSession.participants.some(p => p.userId === session.user?.id);
-    const isHost = quizSession.hostId === session.user?.id;
+    const isParticipant = quizSession.participants.some(p => p.userId === session.user?.userId);
+    const isHost = quizSession.hostId === session.user?.userId;
 
     if (!isParticipant && !isHost) {
       // Add user as a participant
       await prisma.participation.create({
         data: {
           sessionId: quizSession.id,
-          userId: session.user.id,
+          userId: session.user.userId,
         },
       });
     }
@@ -77,7 +77,7 @@ export async function GET(
     console.error("Error fetching session:", error);
     return NextResponse.json(
       { error: "Failed to fetch session details" },
-      { status: 500 }
+      { status: 404 }
     );
   }
 }

@@ -105,7 +105,7 @@ export async function PUT(
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
 
-    if (quiz.authorId !== session.user.id) {
+    if (quiz.authorId !== session.user.userId) {
       return NextResponse.json(
         { error: "You don't have permission to update questions in this quiz" },
         { status: 403 }
@@ -169,7 +169,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
 
-    if (quiz.authorId !== session.user.id) {
+    if (quiz.authorId !== session.user.userId) {
       return NextResponse.json(
         { error: "You don't have permission to delete questions from this quiz" },
         { status: 403 }

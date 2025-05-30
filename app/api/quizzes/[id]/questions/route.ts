@@ -27,7 +27,7 @@ export async function GET(
     }
 
     // Allow access if user is author or it's a session participant
-    let hasAccess = quiz.authorId === session.user.id;
+    let hasAccess = quiz.authorId === session.user.userId;
 
     if (!hasAccess) {
       // Check if user is a participant in an active session for this quiz
@@ -99,7 +99,7 @@ export async function POST(
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
 
-    if (quiz.authorId !== session.user.id) {
+    if (quiz.authorId !== session.user.userId) {
       return NextResponse.json(
         { error: "You don't have permission to add questions to this quiz" },
         { status: 403 }

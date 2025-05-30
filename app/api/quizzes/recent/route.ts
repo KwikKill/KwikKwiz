@@ -5,16 +5,16 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   try {
     // Get quizzes created by the user
     const quizzes = await prisma.quiz.findMany({
       where: {
-        authorId: session.user.id,
+        authorId: session.user.userId,
       },
       orderBy: {
         createdAt: "desc",
@@ -28,7 +28,7 @@ export async function GET() {
       },
       take: 10,
     });
-    
+
     // Transform the data for the frontend
     const formattedQuizzes = quizzes.map((quiz) => ({
       id: quiz.id,
@@ -37,7 +37,7 @@ export async function GET() {
       createdAt: quiz.createdAt.toISOString(),
       questionsCount: quiz._count.questions,
     }));
-    
+
     return NextResponse.json(formattedQuizzes);
   } catch (error) {
     console.error("Error fetching recent quizzes:", error);

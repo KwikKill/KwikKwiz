@@ -34,7 +34,7 @@ export async function PUT(
       return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
     }
 
-    if (quiz.authorId !== session.user.id) {
+    if (quiz.authorId !== session.user.userId) {
       return NextResponse.json(
         { error: "You don't have permission to reorder questions in this quiz" },
         { status: 403 }
