@@ -5,11 +5,11 @@ import { authOptions } from "@/lib/auth";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   try {
     // Get active quiz sessions
     const activeSessions = await prisma.quizSession.findMany({
@@ -34,7 +34,7 @@ export async function GET() {
         createdAt: "desc",
       },
     });
-    
+
     // Transform the data for the frontend
     const formattedSessions = activeSessions.map((session) => ({
       id: session.id,
@@ -43,8 +43,9 @@ export async function GET() {
       status: session.status,
       startedAt: session.startedAt?.toISOString() || null,
       participantsCount: session._count.participants,
+      hostId: session.hostId,
     }));
-    
+
     return NextResponse.json(formattedSessions);
   } catch (error) {
     console.error("Error fetching active sessions:", error);

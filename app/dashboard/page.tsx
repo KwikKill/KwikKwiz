@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, Clock, Users, Trophy } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 interface Quiz {
   id: string;
@@ -24,13 +26,46 @@ interface Session {
   status: string;
   startedAt: string | null;
   participantsCount: number;
+  hostId: string;
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { toast } = useToast();
   const { data: session, status } = useSession();
   const [recentQuizzes, setRecentQuizzes] = useState<Quiz[]>([]);
   const [activeSessions, setActiveSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+
+  const joinSession = async (code: string) => {
+    try {
+      const response = await fetch(`/api/sessions/join`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to join session");
+      }
+
+      // Redirect to the session page
+      router.push(`/session/${data.sessionId}`);
+    } catch (error) {
+      toast({
+        title: "Error joining session",
+        description: error instanceof Error ? error.message : "Failed to join session",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -130,43 +165,49 @@ export default function DashboardPage() {
         </div>
 
         <Tabs defaultValue="active-sessions" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="active-sessions">Active Sessions</TabsTrigger>
-            {session?.user?.isAdmin && (
+          {session?.user?.isAdmin && (
+            <TabsList>
+              <TabsTrigger value="active-sessions">Active Sessions</TabsTrigger>
               <TabsTrigger value="your-quizzes">Your Quizzes</TabsTrigger>
-            )}
-          </TabsList>
+            </TabsList>
+          )}
           <TabsContent value="active-sessions" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {isLoading ? (
                 <p>Loading sessions...</p>
               ) : activeSessions.length > 0 ? (
-                activeSessions.map((session) => (
-                  <Card key={session.id} className="overflow-hidden">
+                activeSessions.map((_session) => (
+                  <Card key={_session.id} className="overflow-hidden">
                     <CardHeader>
-                      <CardTitle>{session.quizName}</CardTitle>
+                      <CardTitle>{_session.quizName}</CardTitle>
                       <CardDescription>
-                        Session Code: <span className="font-mono">{session.code}</span>
+                        Session Code: <span className="font-mono">{_session.code}</span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center gap-2 text-sm">
                         <Users className="h-4 w-4" />
-                        <span>{session.participantsCount} participants</span>
+                        <span>{_session.participantsCount} participants</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm mt-2">
                         <Clock className="h-4 w-4" />
                         <span>
-                          {session.startedAt
-                            ? `Started ${format(new Date(session.startedAt), "PPp")}`
+                          {_session.startedAt
+                            ? `Started ${format(new Date(_session.startedAt), "PPp")}`
                             : "Not started yet"}
                         </span>
                       </div>
                     </CardContent>
                     <CardFooter>
-                      <Link href={`/quiz/join?code=${session.code}`} className="w-full">
-                        <Button className="w-full">Join Session</Button>
+                      {_session.hostId === session?.user?.userId ? (
+                      <Link href={`/admin/sessions/${_session.id}/host`} className="w-full">
+                        <Button className="w-full">Host Session</Button>
                       </Link>
+                      ) : (
+                      <Button className="w-full" onClick={() => joinSession(_session.code)}>
+                        Join Session
+                      </Button>
+                      )}
                     </CardFooter>
                   </Card>
                 ))

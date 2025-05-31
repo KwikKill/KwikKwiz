@@ -18,7 +18,7 @@ export async function GET(
     const sessionId = resolvedParams.id;
 
     const quizSession = await prisma.quizSession.findUnique({
-      where: { code: sessionId },
+      where: { id: sessionId },
       include: {
         quiz: {
           select: {
