@@ -8,7 +8,13 @@ export type SessionState = {
   currentQuestion: any | null
   participants: Map<string, { id: string; name: string; image: string }>
   answers: Map<string, Map<string, { answer: string; submittedAt: Date }>>
-  status: "waiting" | "active" | "correction" | "completed"
+  status: "waiting" | "active" | "correction" | "completed",
+  leaderboard?: Array<{
+    userId: string
+    name: string | null
+    image?: string | null
+    score: number
+  }>
 }
 
 export const sessionStates = new Map<string, SessionState>()
@@ -73,13 +79,11 @@ export function initSocketServer(server: Server) {
             participants,
             answers: new Map(),
             status: session.status.toLowerCase() as "waiting" | "active" | "correction" | "completed",
+            leaderboard: [],
           })
         }
 
         const sessionState = sessionStates.get(sessionId)!
-
-        console.log(`User ${userId} joined session ${sessionId}`)
-        console.log("Participants :", sessionState.participants)
 
         // Add participant if not already in the session
         if (!sessionState.participants.has(userId)) {
@@ -102,12 +106,39 @@ export function initSocketServer(server: Server) {
           })
         }
 
+        // If the session is completed, send the leaderboard
+        if (sessionState.status === "completed" && sessionState.leaderboard) {
+          // Get final leaderboard
+          const leaderboard = await prisma.participation.findMany({
+            where: { sessionId },
+            orderBy: { score: "desc" },
+            select: {
+              userId: true,
+              score: true,
+              user: {
+                select: {
+                  name: true,
+                  image: true,
+                },
+              },
+            },
+          })
+
+          sessionState.leaderboard = leaderboard.map((entry) => ({
+            userId: entry.userId,
+            name: entry.user.name,
+            image: entry.user.image,
+            score: entry.score,
+          }));
+        }
+
         // Send session state to the client
         socket.emit("session-state", {
           sessionId,
           status: sessionState.status,
           currentQuestion: sessionState.currentQuestion,
           participants: Array.from(sessionState.participants.values()),
+          leaderboard: sessionState.leaderboard || [],
         })
       } catch (error) {
         console.error("Error joining session:", error)

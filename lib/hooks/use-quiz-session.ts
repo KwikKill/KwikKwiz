@@ -141,6 +141,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setStatus(data.status)
       setCurrentQuestion(data.currentQuestion)
       setParticipants(Array.isArray(data.participants) ? data.participants : [])
+      setLeaderboard(data.leaderboard || [])
     }
 
     const handleNewQuestion = (data: any) => {
