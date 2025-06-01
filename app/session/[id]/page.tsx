@@ -35,6 +35,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     participants,
     answers,
     userAnswer,
+    questions,
     hasSubmitted,
     leaderboard,
     isConnected,
@@ -72,6 +73,11 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         })
     }
   }, [sessionId, authSession, authStatus])
+
+  useEffect(() => {
+    // Reset selectedAnswer when the currentQuestion changes
+    setSelectedAnswer("");
+  }, [currentQuestion]);
 
   useEffect(() => {
     if (isConnected) {
@@ -375,131 +381,16 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         <CardContent className="space-y-4">
           {isHost ? (
             <>
-              {!correctionQuestion ? (
-                <div className="space-y-4">
-                  <h3 className="font-medium">Select a Question to Review</h3>
-                  <div className="grid gap-2">
-                    {quizDetails?.quiz?.questions?.map((question: any, index: number) => (
-                      <Card
-                        key={question.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => selectCorrectionQuestion(question.id)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <Badge variant="outline" className="mb-2">
-                                Q{index + 1}
-                              </Badge>
-                              <p className="text-sm font-medium">{question.text}</p>
-                            </div>
-                            <Button variant="outline" size="sm">
-                              Review
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-medium">Reviewing: {correctionQuestion.text}</h3>
-                      <p className="text-sm text-muted-foreground">{correctionAnswers.length} answers to review</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-
-                      }}
-                    >
-                      Back to Questions
-                    </Button>
-                  </div>
-
-                  {currentShownAnswer ? (
-                    <Card className="border-primary/50">
-                      <CardHeader>
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-medium">{currentShownAnswer.userName}'s Answer</h4>
-                          {currentShownAnswer.isCorrect !== null ? (
-                            <Badge variant={currentShownAnswer.isCorrect ? "default" : "destructive"}>
-                              {currentShownAnswer.isCorrect
-                                ? `Correct (${currentShownAnswer.points} pts)`
-                                : "Incorrect"}
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">Pending Review</Badge>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-lg mb-4">{currentShownAnswer.answer}</p>
-                        {currentShownAnswer.isCorrect === null && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              className="flex-1 border-red-200 hover:bg-red-50"
-                              onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, false, 0)}
-                            >
-                              <XCircle className="h-4 w-4 mr-1 text-red-500" />
-                              Incorrect (0 pts)
-                            </Button>
-                            <Button
-                              variant="outline"
-                              className="flex-1 border-green-200 hover:bg-green-50"
-                              onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, true, 1)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1 text-green-500" />
-                              Correct (1 pt)
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Select an answer to review:</h4>
-                      {correctionAnswers.map((answer) => (
-                        <Card
-                          key={answer.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => showCorrectionAnswer(answer.id)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-2">
-                                {answer.userImage && (
-                                  <img
-                                    src={answer.userImage || "/placeholder.svg"}
-                                    alt={answer.userName}
-                                    className="w-6 h-6 rounded-full"
-                                  />
-                                )}
-                                <span className="font-medium">{answer.userName}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {answer.isCorrect !== null ? (
-                                  <Badge variant={answer.isCorrect ? "default" : "destructive"}>
-                                    {answer.isCorrect ? `✓ ${answer.points} pts` : "✗ 0 pts"}
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline">Not Reviewed</Badge>
-                                )}
-                                <Button variant="outline" size="sm">
-                                  Show Answer
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div>
+                You can only correct answers on the host menu
+              </div>
+              <Button
+                onClick={() => router.push(`/admin/sessions/${sessionId}/host`)}
+                className="w-full"
+                disabled={!correctionQuestion && correctionAnswers.length === 0}
+              >
+                Go to host menu
+              </Button>
             </>
           ) : (
             <div className="py-10 text-center">
@@ -564,6 +455,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
   const renderResults = () => (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Leaderboard Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -686,6 +578,93 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             Back to Dashboard
           </Button>
         </CardFooter>
+      </Card>
+
+      {/* Recap Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Session Recap
+          </CardTitle>
+          <CardDescription>
+            Here are the questions and answers from this session.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {questions.length > 0 ? (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Responses</h3>
+
+              {questions.map((question) => (
+                <Card key={question.id} className="overflow-hidden">
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex justify-between items-start">
+                      <Badge variant="outline">
+                        {question.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-base mt-2">{question.text}</CardTitle>
+                  </CardHeader>
+
+                  {question.imageUrl && (
+                    <div className="px-4">
+                      <div className="w-full h-40 bg-muted rounded-md flex items-center justify-center">
+                        <img
+                          src={question.imageUrl || "/placeholder.svg"}
+                          alt="Question"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <CardContent className="p-4 pt-2">
+                    <div className="space-y-2 mt-2">
+                      {Object.entries(question.response ?? {}).map(([userId, response]) => {
+                        const participant = participants.find((p) => p.id === userId)
+                        return (
+                          <div key={userId} className="flex items-start gap-2 p-2 rounded-md border items-center">
+                            {participant?.image ? (
+                              <img
+                                src={participant.image || "/placeholder.svg"}
+                                alt={participant.name || "Unknown"}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                                {participant?.name?.charAt(0).toUpperCase() || "?"}
+                              </div>
+                            )}
+                            <div className="flex-1 flex flex-row justify-between items-center">
+                              <p className="text-sm">{response.answer}</p>
+                              {response.isCorrect !== undefined && (
+                                <Badge
+                                  variant={response.isCorrect ? "default" : "destructive"}
+                                  className={response.isCorrect ? "bg-green-500" : "bg-red-500"}
+                                >
+                                  {response.isCorrect
+                                    ? `Correct (1 pts)`
+                                    : "Incorrect (0 pts)"}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
+                      }
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
+              <p className="mt-2 text-muted-foreground">No questions answered in this session</p>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   )

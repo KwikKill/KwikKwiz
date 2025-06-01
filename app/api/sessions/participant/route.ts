@@ -14,11 +14,18 @@ export async function GET() {
     // Get quiz sessions where the user is a participant
     const activeSessions = await prisma.quizSession.findMany({
       where: {
-        participants: {
-          some: {
-            userId: session.user.userId,
+        OR: [
+          {
+            participants: {
+              some: {
+                userId: session.user.userId,
+              },
+            },
           },
-        },
+          {
+            hostId: session.user.userId,
+          },
+        ],
       },
       include: {
         quiz: {

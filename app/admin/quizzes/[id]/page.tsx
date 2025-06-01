@@ -89,7 +89,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && quizId) {
       // Fetch quiz details
       fetch(`/api/quizzes/${quizId}`)
         .then((res) => {

@@ -56,6 +56,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     status,
     currentQuestion,
     participants,
+    questions,
     answers,
     leaderboard,
     isConnected,
@@ -340,8 +341,12 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
             </TabsContent>
 
             <TabsContent value="responses" className="border rounded-md p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium">Responses</h2>
+              <div className="flex justify-between items-center mb-4 w-full">
+                {status === "completed" ? (
+                  <h2 className="text-lg font-medium text-center w-full">Final Results</h2>
+                ) : (
+                  <h2 className="text-lg font-medium text-center w-full">Responses</h2>
+                )}
                 <div className="flex gap-2">
                   {status === "active" && (
                     <Button onClick={startCorrection} size="sm">
@@ -354,13 +359,15 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
               <ScrollArea className="h-[60vh]">
                 {status === "completed" ? (
                   <div className="space-y-4">
-                    <div className="bg-muted p-4 rounded-md">
-                      <h3 className="text-lg font-medium flex items-center gap-2">
-                        <Trophy className="h-5 w-5 text-primary" />
-                        Final Results
-                      </h3>
+                    <Card>
+                      <CardHeader className="text-lg font-medium">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="h-5 w-5 text-primary" />
+                          <CardTitle className="text-base">Podium</CardTitle>
+                        </div>
+                      </CardHeader>
 
-                      <div className="mt-4 border rounded-md overflow-hidden">
+                      <CardContent>
                         <table className="w-full">
                           <thead className="bg-background">
                             <tr>
@@ -369,7 +376,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                               <th className="px-4 py-2 text-right text-sm font-medium">Score</th>
                             </tr>
                           </thead>
-                          <tbody>
+                          <tbody className="bg-muted">
                             {leaderboard.map((entry, index) => (
                               <tr key={entry.userId} className="border-t">
                                 <td className="px-4 py-3 text-sm">{index + 1}</td>
@@ -379,7 +386,82 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             ))}
                           </tbody>
                         </table>
-                      </div>
+                      </CardContent>
+                    </Card>
+
+                    <div>
+                      {questions.length > 0 ? (
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-medium text-center">Responses</h3>
+
+                          {questions.map((question) => (
+                            <Card key={question.id} className="overflow-hidden">
+                              <CardHeader className="p-4 pb-2">
+                                <div className="flex justify-between items-start">
+                                  <Badge variant="outline">
+                                    {question.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
+                                  </Badge>
+                                </div>
+                                <CardTitle className="text-base mt-2">{question.text}</CardTitle>
+                              </CardHeader>
+
+                              {question.imageUrl && (
+                                <div className="px-4">
+                                  <div className="w-full h-40 bg-muted rounded-md flex items-center justify-center">
+                                    <img
+                                      src={question.imageUrl || "/placeholder.svg"}
+                                      alt="Question"
+                                      className="max-w-full max-h-full object-contain"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              <CardContent className="p-4 pt-2">
+                                <div className="space-y-2 mt-2">
+                                  {Object.entries(question.response ?? {}).map(([userId, response]) => {
+                                    const participant = participants.find((p) => p.id === userId)
+                                    return (
+                                      <div key={userId} className="flex items-start gap-2 p-2 rounded-md border items-center">
+                                        {participant?.image ? (
+                                          <img
+                                            src={participant.image || "/placeholder.svg"}
+                                            alt={participant.name || "Unknown"}
+                                            className="w-8 h-8 rounded-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                                            {participant?.name?.charAt(0).toUpperCase() || "?"}
+                                          </div>
+                                        )}
+                                        <div className="flex-1 flex flex-row justify-between items-center">
+                                          <p className="text-sm">{response.answer}</p>
+                                          {response.isCorrect !== undefined && (
+                                            <Badge
+                                              variant={response.isCorrect ? "default" : "destructive"}
+                                              className={response.isCorrect ? "bg-green-500" : "bg-red-500"}
+                                            >
+                                              {response.isCorrect
+                                                ? `Correct (1 pts)`
+                                                : "Incorrect (0 pts)"}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  })
+                                  }
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-10">
+                          <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
+                          <p className="mt-2 text-muted-foreground">No questions answered in this session</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : status === "correction" ? (
@@ -403,12 +485,17 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                               <CardContent className="p-4">
                                 <div className="flex justify-between items-start">
                                   <div>
-                                    <Badge variant="outline" className="mb-2">
-                                      Q{index + 1}
-                                    </Badge>
-                                    <p className="text-sm font-medium">{question.text}</p>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline">
+                                        Q{index + 1}
+                                      </Badge>
+                                      <p className="text-sm font-medium">{question.text}</p>
+                                    </div>
                                     {question.type === "MULTIPLE_CHOICE" && (
                                       <p className="text-xs text-muted-foreground mt-1">Multiple Choice</p>
+                                    )}
+                                    {question.type === "FREE_ANSWER" && (
+                                      <p className="text-xs text-muted-foreground mt-1">Free Answer</p>
                                     )}
                                   </div>
                                   <Button variant="outline" size="sm">
@@ -444,48 +531,130 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         </div>
 
                         {currentShownAnswer ? (
-                          <Card className="border-primary/50">
-                            <CardHeader>
-                              <div className="flex justify-between items-center">
-                                <h4 className="font-medium">{currentShownAnswer.userName}'s Answer</h4>
-                                {currentShownAnswer.isCorrect !== null ? (
-                                  <Badge variant={currentShownAnswer.isCorrect ? "default" : "destructive"}>
-                                    {currentShownAnswer.isCorrect
-                                      ? `Correct (${currentShownAnswer.points} pts)`
-                                      : "Incorrect (0 pts)"}
+                          <div className="gap-4 flex flex-col">
+                            {/* Expected answer */}
+                            <Card className="border-primary/50">
+                              <CardHeader>
+                                <div className="flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                    <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                                    <h4 className="font-medium">Expected Answer</h4>
+                                  </div>
+                                  <Badge variant="outline">
+                                    {correctionQuestion.type === "MULTIPLE_CHOICE"
+                                      ? "Multiple Choice"
+                                      : "Free Answer"}
                                   </Badge>
-                                ) : (
-                                  <Badge variant="outline">Pending Review</Badge>
-                                )}
-                              </div>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="space-y-4">
-                                <div className="p-4 bg-muted rounded-md">
-                                  <p className="font-medium text-lg">{currentShownAnswer.answer}</p>
                                 </div>
+                              </CardHeader>
+                              <CardContent>
+                                <p className="text-lg font-medium bg-muted p-4 rounded-md">
+                                  {correctionQuestion.correctAnswer}
+                                </p>
+                              </CardContent>
+                            </Card>
 
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="outline"
-                                    className="flex-1 border-red-200 hover:bg-red-50"
-                                    onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, false, 0)}
-                                  >
-                                    <XCircle className="h-4 w-4 mr-1 text-red-500" />
-                                    Incorrect (0 pts)
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    className="flex-1 border-green-200 hover:bg-green-50"
-                                    onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, true, 1)}
-                                  >
-                                    <CheckCircle className="h-4 w-4 mr-1 text-green-500" />
-                                    Correct (1 pt)
-                                  </Button>
+                            {/* Display current answer being reviewed */}
+                            <Card className="border-primary/50">
+                              <CardHeader>
+                                <div className="flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                    {currentShownAnswer.userImage ? (
+                                      <img
+                                        src={currentShownAnswer.userImage || "/placeholder.svg"}
+                                        alt={currentShownAnswer.userName}
+                                        className="w-8 h-8 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                                        {currentShownAnswer.userName?.charAt(0).toUpperCase() || "?"}
+                                      </div>
+                                    )}
+                                    <h4 className="font-medium">{currentShownAnswer.userName}'s Answer</h4>
+                                  </div>
+                                  {currentShownAnswer.isCorrect !== null ? (
+                                    <Badge
+                                      variant={currentShownAnswer.isCorrect ? "default" : "destructive"}
+                                      className={currentShownAnswer.isCorrect ? "bg-green-500" : "bg-red-500"}
+                                    >
+                                      {currentShownAnswer.isCorrect
+                                        ? `Correct (${currentShownAnswer.points} pts)`
+                                        : "Incorrect (0 pts)"}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline">Pending Review</Badge>
+                                  )}
                                 </div>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-4">
+                                  <div className="p-4 bg-muted rounded-md">
+                                    <p className="font-medium text-lg">{currentShownAnswer.answer}</p>
+                                  </div>
+
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      className={`flex-1 border-red-200 hover:bg-red-800 ${
+                                        currentShownAnswer.isCorrect === false ? "bg-red-500" : ""
+                                      }`}
+                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, false, 0)}
+                                    >
+                                      <XCircle className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === false ? "" : "text-red-500"}`} />
+                                      Incorrect (0 pts)
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      className={`flex-1 border-green-200 hover:bg-green-800 ${
+                                        currentShownAnswer.isCorrect === true ? "bg-green-500" : ""
+                                      }`}
+                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, true, 1)}
+                                    >
+                                      <CheckCircle className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === true ? "" : "text-green-500"}`} />
+                                      Correct (1 pt)
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                            {/* Previous and next answer buttons in correctionAnswers*/}
+                            <div className="flex justify-center">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={correctionAnswers[0].id === currentShownAnswer.id}
+                                  onClick={() => {
+                                    const currentIndex = correctionAnswers.findIndex(
+                                      (a) => a.id === currentShownAnswer.id,
+                                    )
+                                    if (currentIndex > 0) {
+                                      showCorrectionAnswer(correctionAnswers[currentIndex - 1].id)
+                                    }
+                                  }}
+                                >
+                                  Previous Answer
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    correctionAnswers[correctionAnswers.length - 1].id === currentShownAnswer.id
+                                  }
+                                  onClick={() => {
+                                    const currentIndex = correctionAnswers.findIndex(
+                                      (a) => a.id === currentShownAnswer.id,
+                                    )
+                                    if (currentIndex < correctionAnswers.length - 1) {
+                                      showCorrectionAnswer(correctionAnswers[currentIndex + 1].id)
+                                    }
+                                  }}
+                                >
+                                  Next Answer
+                                </Button>
                               </div>
-                            </CardContent>
-                          </Card>
+                            </div>
+                          </div>
                         ) : (
                           <div className="space-y-2">
                             <h4 className="font-medium">Select an answer to show and grade:</h4>

@@ -18,6 +18,10 @@ type Question = {
   type: "MULTIPLE_CHOICE" | "FREE_ANSWER"
   options?: string[]
   correctAnswer: string
+  response?: Record<string, {
+    answer: string
+    isCorrect?: boolean | null
+  }>
 }
 
 type Answer = {
@@ -48,6 +52,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
   const [userAnswer, setUserAnswer] = useState<string | null>(null)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [questions, setQuestions] = useState<Question[]>([])
   const [correctionQuestion, setCorrectionQuestion] = useState<Question | null>(null)
   const [correctionAnswers, setCorrectionAnswers] = useState<any[]>([])
   const [currentShownAnswer, setCurrentShownAnswer] = useState<any | null>(null)
@@ -143,6 +148,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setCurrentQuestion(data.currentQuestion)
       setParticipants(Array.isArray(data.participants) ? data.participants : [])
       setLeaderboard(data.leaderboard || [])
+      setQuestions(data.questions || [])
     }
 
     const handleNewQuestion = (data: any) => {
@@ -154,6 +160,8 @@ export function useQuizSession(sessionId: string, isHost = false) {
 
     const handleParticipantJoined = (data: any) => {
       if (data.participant) {
+        // If the participant is already in the list, do not add again
+        if (participants.some((p) => p.id === data.participant.id)) return
         setParticipants((prev) => [...prev, data.participant])
       }
     }
@@ -189,8 +197,9 @@ export function useQuizSession(sessionId: string, isHost = false) {
       }
     }
 
-    const handleCorrectionStarted = () => {
+    const handleCorrectionStarted = (data: any) => {
       setStatus("correction")
+      setQuestions(data.questions || [])
       toast({
         title: "Correction round started",
         description: isHost ? "You can now review and grade all answers" : "The host is now reviewing all answers",
@@ -216,8 +225,10 @@ export function useQuizSession(sessionId: string, isHost = false) {
     }
 
     const handleSessionEnded = (data: any) => {
+      console.log("Session ended:", data)
       setStatus("completed")
       setLeaderboard(data.leaderboard)
+      setQuestions(data.questions || [])
       toast({
         title: "Session ended",
         description: "The quiz session has ended",
@@ -269,6 +280,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
     userAnswer,
     hasSubmitted,
     leaderboard,
+    questions,
     isConnected,
     correctionQuestion,
     correctionAnswers,
