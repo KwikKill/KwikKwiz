@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [recentQuizzes, setRecentQuizzes] = useState<Quiz[]>([]);
   const [activeSessions, setActiveSessions] = useState<Session[]>([]);
+  const [participantSessions, setParticipantSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
 
@@ -84,6 +85,14 @@ export default function DashboardPage() {
           setActiveSessions(data);
         })
         .catch((error) => console.error("Failed to fetch active sessions:", error))
+
+      // Fetch sessions where the user is a participant
+      fetch("/api/sessions/participant")
+        .then((res) => res.json())
+        .then((data) => {
+          setParticipantSessions(data);
+        })
+        .catch((error) => console.error("Failed to fetch active sessions:", error))
         .finally(() => setIsLoading(false));
     }
   }, [status]);
@@ -122,6 +131,18 @@ export default function DashboardPage() {
               </p>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Participations</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{participantSessions.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Sessions you've participated in
+              </p>
+            </CardContent>
+          </Card>
           {session?.user?.isAdmin && (
             <>
               <Card>
@@ -136,41 +157,20 @@ export default function DashboardPage() {
                   </p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Participants</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">--</div>
-                  <p className="text-xs text-muted-foreground">
-                    People who've joined your quizzes
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Highest Score</CardTitle>
-                  <Trophy className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">--</div>
-                  <p className="text-xs text-muted-foreground">
-                    Best performance in your quizzes
-                  </p>
-                </CardContent>
-              </Card>
             </>
           )}
         </div>
 
         <Tabs defaultValue="active-sessions" className="space-y-4">
-          {session?.user?.isAdmin && (
-            <TabsList>
-              <TabsTrigger value="active-sessions">Active Sessions</TabsTrigger>
+          <TabsList>
+            <TabsTrigger value="active-sessions">Active Sessions</TabsTrigger>
+            <TabsTrigger value="participant-sessions">
+              Your Participated Sessions
+            </TabsTrigger>
+            {session?.user?.isAdmin && (
               <TabsTrigger value="your-quizzes">Your Quizzes</TabsTrigger>
-            </TabsList>
-          )}
+            )}
+          </TabsList>
           <TabsContent value="active-sessions" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {isLoading ? (
@@ -221,6 +221,57 @@ export default function DashboardPage() {
                       </Button>
                     </Link>
                   </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="participant-sessions" className="space-y-4">
+            <h2 className="text-xl font-semibold">Your Participated Sessions</h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {isLoading ? (
+                <p>Loading sessions...</p>
+              ) : participantSessions.length > 0 ? (
+                participantSessions.map((_session) => (
+                  <Card key={_session.id} className="overflow-hidden">
+                    <CardHeader>
+                      <CardTitle>{_session.quizName}</CardTitle>
+                      <CardDescription>
+                        Session Code: <span className="font-mono">{_session.code}</span>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Users className="h-4 w-4" />
+                        <span>{_session.participantsCount} participants</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm mt-2">
+                        <Clock className="h-4 w-4" />
+                        <span>
+                          {_session.startedAt
+                            ? `Started ${format(new Date(_session.startedAt), "PPp")}`
+                            : "Not started yet"}
+                        </span>
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      {_session.hostId === session?.user?.userId ? (
+                        <Link href={`/admin/sessions/${_session.id}/host`} className="w-full">
+                          <Button className="w-full">Show Host Menu</Button>
+                        </Link>
+                      ) : (
+                        <Button className="w-full" onClick={() => joinSession(_session.code)}>
+                          { _session.status === "COMPLETED" ? 'Show Results' : 'Join Session'}
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-10">
+                  <p className="text-muted-foreground">You haven't participated in any sessions yet.</p>
+                  <Link href="/quiz/join">
+                    <Button variant="outline" className="mt-2">Join a Session with Code</Button>
+                  </Link>
                 </div>
               )}
             </div>

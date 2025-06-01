@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma"
 export type SessionState = {
   sessionId: string
   currentQuestion: any | null
-  participants: Map<string, { id: string; name: string; image: string }>
+  participants: Map<string, { id: string; name: string; image: string, host: boolean }>
   answers: Map<string, Map<string, { answer: string; submittedAt: Date }>>
   status: "waiting" | "active" | "correction" | "completed",
   leaderboard?: Array<{
@@ -70,6 +70,7 @@ export function initSocketServer(server: Server) {
               id: participant.userId,
               name: participant.user.name || "Anonymous",
               image: participant.user.image || "",
+              host: session.hostId === participant.userId,
             })
           })
 
@@ -97,6 +98,7 @@ export function initSocketServer(server: Server) {
               id: user.id,
               name: user.name || "Anonymous",
               image: user.image || "",
+              host: session.hostId === userId,
             })
           }
 
@@ -124,12 +126,18 @@ export function initSocketServer(server: Server) {
             },
           })
 
-          sessionState.leaderboard = leaderboard.map((entry) => ({
-            userId: entry.userId,
-            name: entry.user.name,
-            image: entry.user.image,
-            score: entry.score,
-          }));
+          sessionState.leaderboard = []
+
+          leaderboard.forEach((entry) => {
+            if (session.hostId !== entry.userId) {
+              sessionState.leaderboard!.push({
+                userId: entry.userId,
+                name: entry.user.name,
+                image: entry.user.image,
+                score: entry.score,
+              })
+            }
+          });
         }
 
         // Send session state to the client
@@ -198,6 +206,7 @@ export function initSocketServer(server: Server) {
 
             // Broadcast the question to all participants
             io.to(sessionId).emit("new-question", {
+              status: sessionState.status,
               question: {
                 id: question.id,
                 text: question.text,
@@ -638,14 +647,27 @@ export function initSocketServer(server: Server) {
               },
             })
 
+            const leaderboard_state: Array<{
+              userId: string
+              name: string | null
+              image?: string | null
+              score: number
+            }> = []
+
+            leaderboard.forEach((entry) => {
+              if (session.hostId !== entry.userId) {
+                leaderboard_state!.push({
+                  userId: entry.userId,
+                  name: entry.user.name,
+                  image: entry.user.image,
+                  score: entry.score,
+                })
+              }
+            });
+
             // Notify all participants
             io.to(sessionId).emit("session-ended", {
-              leaderboard: leaderboard.map((entry) => ({
-                userId: entry.userId,
-                name: entry.user.name,
-                image: entry.user.image,
-                score: entry.score,
-              })),
+              leaderboard: leaderboard_state,
             })
 
             // Clean up session state after some time
@@ -706,14 +728,27 @@ export function initSocketServer(server: Server) {
             },
           })
 
+          const leaderboard_state: Array<{
+            userId: string
+            name: string | null
+            image?: string | null
+            score: number
+          }> = []
+
+          leaderboard.forEach((entry) => {
+            if (session.hostId !== entry.userId) {
+              leaderboard_state!.push({
+                userId: entry.userId,
+                name: entry.user.name,
+                image: entry.user.image,
+                score: entry.score,
+              })
+            }
+          });
+
           // Notify all participants
           io.to(sessionId).emit("session-ended", {
-            leaderboard: leaderboard.map((entry) => ({
-              userId: entry.userId,
-              name: entry.user.name,
-              image: entry.user.image,
-              score: entry.score,
-            })),
+            leaderboard: leaderboard_state,
           })
 
           // Clean up session state after some time

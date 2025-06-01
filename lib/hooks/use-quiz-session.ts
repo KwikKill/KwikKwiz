@@ -8,6 +8,7 @@ type Participant = {
   id: string
   name: string
   image: string
+  host: boolean
 }
 
 type Question = {
@@ -145,6 +146,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
     }
 
     const handleNewQuestion = (data: any) => {
+      setStatus(data.status)
       setCurrentQuestion(data.question)
       setUserAnswer(null)
       setHasSubmitted(false)

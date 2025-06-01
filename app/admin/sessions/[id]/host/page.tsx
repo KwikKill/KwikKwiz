@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -193,7 +194,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           <Badge variant="outline">
                             {question.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
                           </Badge>
-                          <Badge variant="secondary">Q{question.order}</Badge>
+                          <Badge variant="secondary">Q{question.order + 1}</Badge>
                         </div>
                         <CardTitle className="text-base mt-2">{question.text}</CardTitle>
                       </CardHeader>
@@ -226,13 +227,13 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       )}
 
                       <CardFooter className="p-4 pt-0">
-                        <Button
+                        {status !== "completed" && <Button
                           onClick={() => handleSelectQuestion(question.id)}
                           className="w-full"
                           disabled={currentQuestion?.id === question.id}
                         >
                           {currentQuestion?.id === question.id ? "Current Question" : "Select Question"}
-                        </Button>
+                        </Button>}
                       </CardFooter>
                     </Card>
                   ))}
@@ -282,13 +283,13 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           <span>{participant.name}</span>
                         </div>
 
-                        {currentQuestion && (
+                        {currentQuestion && status === "active" ? (
                           <div className="flex items-center gap-2">
                             {participant.id === quizSession.hostId ? (
                               <Badge variant="destructive">Host</Badge>
                             ) : answers.some(
-                                (a) => a.userId === participant.id && a.questionId === currentQuestion.id,
-                              ) ? (
+                              (a) => a.userId === participant.id && a.questionId === currentQuestion.id,
+                            ) ? (
                               <Badge variant="outline">
                                 <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
                                 Answered
@@ -300,9 +301,26 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                               </Badge>
                             )}
                           </div>
+                        ) : (
+                          participant.id === quizSession.hostId && (<Badge variant="destructive">Host</Badge>)
                         )}
                       </div>
                     ))}
+                    {currentQuestion && status === "active" && (
+                      <div className="p-4 bg-muted rounded-md">
+                        {/* Hardcoded "Minus 1" because host can't reply */}
+                        <p className="text-center text-muted-foreground">
+                          {answers.filter((a) => a.questionId === currentQuestion.id).length} of {participants.length - 1} answers
+                          received
+                        </p>
+                        <Progress
+                          className="mt-2 border-primary"
+                          value={
+                            (answers.filter((a) => a.questionId === currentQuestion.id).length / (participants.length - 1)) * 100
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-10">

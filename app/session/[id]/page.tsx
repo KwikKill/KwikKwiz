@@ -44,7 +44,6 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     joinSession,
     selectQuestion,
     submitAnswer,
-    startCorrection,
     gradeAnswer,
     endSession,
     selectCorrectionQuestion,
@@ -63,7 +62,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         .then((data) => {
           if (!("error" in data)) {
             setQuizDetails(data)
-            setIsHost(data.hostId === authSession.user?.id)
+            setIsHost(data.hostId === authSession.user?.userId)
           }
           setIsLoading(false)
         })
@@ -156,8 +155,24 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
               {participants.length > 0 ? (
                 <ul className="space-y-2">
                   {participants.map((participant) => (
-                    <li key={participant.id} className="text-sm">
-                      {participant.name}
+                    <li key={participant.id} className="text-sm flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {participant.image ? (
+                          <img
+                            src={participant.image || "/placeholder.svg"}
+                            alt={participant.name || "Unknown"}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                            {participant.name?.charAt(0).toUpperCase() || "?"}
+                          </div>
+                        )}
+                        <span>{participant.name}</span>
+                      </div>
+                      {
+                        participant.host && (<Badge variant="destructive">Host</Badge>)
+                      }
                     </li>
                   ))}
                 </ul>
@@ -236,14 +251,15 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
             {isHost && (
               <div className="p-4 bg-muted rounded-md">
+                {/* Hardcoded "Minus 1" because host can't reply */}
                 <p className="text-center text-muted-foreground">
-                  {answers.filter((a) => a.questionId === currentQuestion.id).length} of {participants.length} answers
+                  {answers.filter((a) => a.questionId === currentQuestion.id).length} of {participants.length - 1} answers
                   received
                 </p>
                 <Progress
-                  className="mt-2"
+                  className="mt-2 border-primary"
                   value={
-                    (answers.filter((a) => a.questionId === currentQuestion.id).length / participants.length) * 100
+                    (answers.filter((a) => a.questionId === currentQuestion.id).length / (participants.length - 1)) * 100
                   }
                 />
               </div>
@@ -262,8 +278,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             )}
 
             {isHost && (
-              <Button onClick={startCorrection} className="w-full">
-                Start Correction Round
+              <Button className="w-full" disabled>
+                You cannot submit answers as a host
               </Button>
             )}
           </CardFooter>
@@ -277,8 +293,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="md:col-span-2">
+      <div className="gap-4 flex flex-col md:flex-row w-full">
+        <Card className="md:col-span-2 flex-1">
           <CardHeader className="pb-2">
             <h3 className="text-sm font-medium">Current Status</h3>
           </CardHeader>
@@ -305,17 +321,33 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             <h3 className="text-sm font-medium">Connected Users</h3>
           </CardHeader>
           <CardContent>
-            <div className="text-sm max-h-24 overflow-y-auto">
-              {participants.length > 0 ? (
-                <ul className="space-y-1">
-                  {participants.map((participant) => (
-                    <li key={participant.id}>{participant.name}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">No participants yet</p>
-              )}
-            </div>
+            {participants.length > 0 ? (
+              <ul className="space-y-2">
+                {participants.map((participant) => (
+                  <li key={participant.id} className="text-sm flex items-center gap-2 justify-between">
+                    <div className="flex items-center gap-2">
+                      {participant.image ? (
+                        <img
+                          src={participant.image || "/placeholder.svg"}
+                          alt={participant.name || "Unknown"}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                          {participant.name?.charAt(0).toUpperCase() || "?"}
+                        </div>
+                      )}
+                      <span>{participant.name}</span>
+                    </div>
+                    {
+                      participant.host && (<Badge variant="destructive">Host</Badge>)
+                    }
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">No participants yet</p>
+            )}
           </CardContent>
         </Card>
       </div>

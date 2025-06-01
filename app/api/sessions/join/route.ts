@@ -34,13 +34,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (quizSession.status === "COMPLETED") {
-      return NextResponse.json(
-        { error: "This session has already ended" },
-        { status: 400 }
-      );
-    }
-
     // Check if user is already a participant
     const existingParticipation = await prisma.participation.findUnique({
       where: {
@@ -52,6 +45,13 @@ export async function POST(request: Request) {
     });
 
     if (!existingParticipation) {
+      if (quizSession.status === "COMPLETED") {
+        return NextResponse.json(
+          { error: "This session has already ended" },
+          { status: 400 }
+        );
+      }
+
       // Add user as a participant
       await prisma.participation.create({
         data: {

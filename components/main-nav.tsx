@@ -35,17 +35,8 @@ export function MainNav() {
     },
     ...(isAdmin
       ? [
-          {
-            href: "/admin/quizzes",
-            label: "Manage Quizzes",
-            active: pathname.startsWith("/admin/quizzes"),
-          },
-          {
-            href: "/admin/sessions",
-            label: "Manage Sessions",
-            active: pathname.startsWith("/admin/sessions"),
-          },
-        ]
+
+      ]
       : []),
   ];
 
@@ -88,7 +79,7 @@ export function MainNav() {
                       className="rounded-full w-8 h-8"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
                       {session.user.name?.charAt(0) || "U"}
                     </div>
                   )}
