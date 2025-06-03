@@ -452,7 +452,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 </div>
               ) : (
                 <div>
-                  <div className="h-10 w-10 mx-auto mb-4 animate-bounce rounded-full border-4 border-primary border-t-transparent"></div>
+                  <div className="h-10 w-10 mx-auto mb-4 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                   <p className="text-muted-foreground">The host is selecting a question to review...</p>
                 </div>
               )}
