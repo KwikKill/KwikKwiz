@@ -11,19 +11,35 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Sparkles, Users, Trophy, AlertCircle, CheckCircle, XCircle } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Sparkles, Users, Trophy, AlertCircle } from "lucide-react"
+import Confetti from "react-confetti"
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const [sessionId, setSessionId] = useState<string>("")
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 })
+
   useEffect(() => {
     params.then((resolvedParams) => {
       setSessionId(resolvedParams.id)
     })
   }, [params])
 
+  useEffect(() => {
+    const updateWindowDimensions = () => {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+    }
+
+    updateWindowDimensions()
+    window.addEventListener("resize", updateWindowDimensions)
+
+    return () => window.removeEventListener("resize", updateWindowDimensions)
+  }, [])
+
   const router = useRouter()
-  const { toast } = useToast()
   const { data: authSession, status: authStatus } = useSession()
   const [isHost, setIsHost] = useState(false)
   const [quizDetails, setQuizDetails] = useState<any>(null)
@@ -34,7 +50,6 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     currentQuestion,
     participants,
     answers,
-    userAnswer,
     questions,
     hasSubmitted,
     leaderboard,
@@ -43,17 +58,10 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     correctionAnswers,
     currentShownAnswer,
     joinSession,
-    selectQuestion,
     submitAnswer,
-    gradeAnswer,
-    endSession,
-    selectCorrectionQuestion,
-    showCorrectionAnswer,
-    gradeCorrectionAnswer,
   } = useQuizSession(sessionId, isHost)
 
   const [selectedAnswer, setSelectedAnswer] = useState("")
-  const [correctionFilter, setCorrectionFilter] = useState("all")
 
   useEffect(() => {
     if (authStatus === "authenticated" && authSession?.user && sessionId) {
@@ -76,14 +84,21 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
   useEffect(() => {
     // Reset selectedAnswer when the currentQuestion changes
-    setSelectedAnswer("");
-  }, [currentQuestion]);
+    setSelectedAnswer("")
+  }, [currentQuestion])
 
   useEffect(() => {
     if (isConnected) {
       joinSession()
     }
   }, [isConnected, joinSession])
+
+  // Show confetti when session is completed
+  useEffect(() => {
+    if (status === "completed") {
+      setShowConfetti(true)
+    }
+  }, [status])
 
   if (authStatus === "loading" || isLoading) {
     return (
@@ -176,9 +191,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                         )}
                         <span>{participant.name}</span>
                       </div>
-                      {
-                        participant.host && (<Badge variant="destructive">Host</Badge>)
-                      }
+                      {participant.host && <Badge variant="destructive">Host</Badge>}
                     </li>
                   ))}
                 </ul>
@@ -259,13 +272,14 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
               <div className="p-4 bg-muted rounded-md">
                 {/* Hardcoded "Minus 1" because host can't reply */}
                 <p className="text-center text-muted-foreground">
-                  {answers.filter((a) => a.questionId === currentQuestion.id).length} of {participants.length - 1} answers
-                  received
+                  {answers.filter((a) => a.questionId === currentQuestion.id).length} of {participants.length - 1}{" "}
+                  answers received
                 </p>
                 <Progress
                   className="mt-2 border-primary"
                   value={
-                    (answers.filter((a) => a.questionId === currentQuestion.id).length / (participants.length - 1)) * 100
+                    (answers.filter((a) => a.questionId === currentQuestion.id).length / (participants.length - 1)) *
+                    100
                   }
                 />
               </div>
@@ -345,9 +359,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                       )}
                       <span>{participant.name}</span>
                     </div>
-                    {
-                      participant.host && (<Badge variant="destructive">Host</Badge>)
-                    }
+                    {participant.host && <Badge variant="destructive">Host</Badge>}
                   </li>
                 ))}
               </ul>
@@ -381,9 +393,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         <CardContent className="space-y-4">
           {isHost ? (
             <>
-              <div>
-                You can only correct answers on the host menu
-              </div>
+              <div>You can only correct answers on the host menu</div>
               <Button
                 onClick={() => router.push(`/admin/sessions/${sessionId}/host`)}
                 className="w-full"
@@ -455,6 +465,17 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
   const renderResults = () => (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Confetti Animation */}
+      {showConfetti && (
+        <Confetti
+          width={windowDimensions.width}
+          height={windowDimensions.height}
+          recycle={false}
+          numberOfPieces={200}
+          gravity={0.3}
+        />
+      )}
+
       {/* Leaderboard Card */}
       <Card>
         <CardHeader>
@@ -587,9 +608,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             <Users className="h-5 w-5 text-primary" />
             Session Recap
           </CardTitle>
-          <CardDescription>
-            Here are the questions and answers from this session.
-          </CardDescription>
+          <CardDescription>Here are the questions and answers from this session.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {questions.length > 0 ? (
@@ -643,16 +662,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                                   variant={response.isCorrect ? "default" : "destructive"}
                                   className={response.isCorrect ? "bg-green-500" : "bg-red-500"}
                                 >
-                                  {response.isCorrect
-                                    ? `Correct (1 pts)`
-                                    : "Incorrect (0 pts)"}
+                                  {response.isCorrect ? `Correct (1 pts)` : "Incorrect (0 pts)"}
                                 </Badge>
                               )}
                             </div>
                           </div>
                         )
-                      })
-                      }
+                      })}
                     </div>
                   </CardContent>
                 </Card>

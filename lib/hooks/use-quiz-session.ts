@@ -18,10 +18,13 @@ type Question = {
   type: "MULTIPLE_CHOICE" | "FREE_ANSWER"
   options?: string[]
   correctAnswer: string
-  response?: Record<string, {
-    answer: string
-    isCorrect?: boolean | null
-  }>
+  response?: Record<
+    string,
+    {
+      answer: string
+      isCorrect?: boolean | null
+    }
+  >
 }
 
 type Answer = {
@@ -56,6 +59,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
   const [correctionQuestion, setCorrectionQuestion] = useState<Question | null>(null)
   const [correctionAnswers, setCorrectionAnswers] = useState<any[]>([])
   const [currentShownAnswer, setCurrentShownAnswer] = useState<any | null>(null)
+  const [askedQuestions, setAskedQuestions] = useState<string[]>([])
 
   const joinSession = useCallback(() => {
     if (socket && isConnected && sessionId) {
@@ -85,19 +89,11 @@ export function useQuizSession(sessionId: string, isHost = false) {
   )
 
   const startCorrection = useCallback(() => {
+    console.log("Answer state :", answers)
     if (socket && isConnected && isHost) {
       socket.emit("start-correction", { sessionId })
     }
   }, [socket, isConnected, sessionId, isHost])
-
-  const gradeAnswer = useCallback(
-    (questionId: string, userId: string, isCorrect: boolean, points: number) => {
-      if (socket && isConnected && isHost) {
-        socket.emit("grade-answer", { sessionId, questionId, userId, isCorrect, points })
-      }
-    },
-    [socket, isConnected, sessionId, isHost],
-  )
 
   const endSession = useCallback(() => {
     if (socket && isConnected && isHost) {
@@ -124,16 +120,28 @@ export function useQuizSession(sessionId: string, isHost = false) {
   )
 
   const gradeCorrectionAnswer = useCallback(
-    (answerId: string, isCorrect: boolean, points: number) => {
+    (answer: { id: string; questionId: string; userId: string }, isCorrect: boolean, points: number) => {
       if (socket && isConnected && isHost) {
-        socket.emit("grade-answer", { sessionId, answerId, isCorrect, points })
+        socket.emit("grade-answer", { sessionId, answerId: answer.id, isCorrect, points })
         // Check if correction is complete after grading
         setTimeout(() => {
           socket.emit("check-correction-complete", { sessionId })
         }, 100)
+
+        console.log("Grading answer:", { sessionId, answer, isCorrect, points, correctionQuestionId: correctionQuestion?.id })
+
+        // Update answer state immediately for the host
+        setAnswers((prev) =>
+          prev.map((answer) =>
+            answer.userId === answer.userId && answer.questionId === correctionQuestion?.id
+              ? { ...answer, isCorrect, points }
+              : answer,
+          ),
+        )
+        console.log("Updated answers state:", answers)
       }
     },
-    [socket, isConnected, sessionId, isHost],
+    [socket, isConnected, sessionId, isHost, answers],
   )
 
   useEffect(() => {
@@ -149,6 +157,8 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setParticipants(Array.isArray(data.participants) ? data.participants : [])
       setLeaderboard(data.leaderboard || [])
       setQuestions(data.questions || [])
+      setAskedQuestions(data.askedQuestions || [])
+      setAnswers(data.answers || []) // Add this line
     }
 
     const handleNewQuestion = (data: any) => {
@@ -156,6 +166,11 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setCurrentQuestion(data.question)
       setUserAnswer(null)
       setHasSubmitted(false)
+
+      // Track that this question was asked
+      if (data.question?.id && !askedQuestions.includes(data.question.id)) {
+        setAskedQuestions((prev) => [...prev, data.question.id])
+      }
     }
 
     const handleParticipantJoined = (data: any) => {
@@ -183,14 +198,21 @@ export function useQuizSession(sessionId: string, isHost = false) {
         // Update answers list for the host
         setAnswers((prev) => {
           const exists = prev.some((a) => a.userId === data.participantId && a.questionId === data.questionId)
-          if (exists) return prev
+          if (exists) {
+            return prev.map((a) =>
+              a.userId === data.participantId && a.questionId === data.questionId
+                ? { ...a, answer: data.answer || "(hidden)", submittedAt: data.submittedAt }
+                : a,
+            )
+          }
 
           return [
             ...prev,
             {
               userId: data.participantId,
               questionId: data.questionId,
-              answer: "(hidden until correction)",
+              answer: data.answer || "(hidden)",
+              submittedAt: data.submittedAt,
             },
           ]
         })
@@ -285,11 +307,11 @@ export function useQuizSession(sessionId: string, isHost = false) {
     correctionQuestion,
     correctionAnswers,
     currentShownAnswer,
+    askedQuestions,
     joinSession,
     selectQuestion,
     submitAnswer,
     startCorrection,
-    gradeAnswer,
     endSession,
     selectCorrectionQuestion,
     showCorrectionAnswer,

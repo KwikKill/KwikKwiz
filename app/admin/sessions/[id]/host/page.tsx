@@ -180,6 +180,64 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
               <TabsTrigger value="responses">Responses</TabsTrigger>
             </TabsList>
 
+            {/* Status Summary */}
+            {(status === "active" || status === "correction") && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <Card className="p-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">{quizSession.quiz.questions.length}</div>
+                    <div className="text-xs text-muted-foreground">Total Questions</div>
+                  </div>
+                </Card>
+
+                {status === "active" && (
+                  <Card className="p-3">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-500">
+                        {new Set(answers.map((a) => a.questionId)).size}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Questions Asked</div>
+                    </div>
+                  </Card>
+                )}
+
+                {status === "correction" && (
+                  <>
+                    <Card className="p-3">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-yellow-500">
+                          {
+                            Array.from(new Set(answers.map((a) => a.questionId))).filter((questionId) => {
+                              const questionAnswers = answers.filter((a) => a.questionId === questionId)
+                              return questionAnswers.some((a) => a.isCorrect === undefined || a.isCorrect === null)
+                            }).length
+                          }
+                        </div>
+                        <div className="text-xs text-muted-foreground">Need Correction</div>
+                      </div>
+                    </Card>
+
+                    <Card className="p-3">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-500">
+                          {
+                            Array.from(new Set(answers.map((a) => a.questionId))).filter((questionId) => {
+                              const questionAnswers = answers.filter((a) => a.questionId === questionId)
+                              return (
+                                questionAnswers.length > 0 &&
+                                questionAnswers.every((a) => a.isCorrect !== undefined && a.isCorrect !== null)
+                              )
+                            }).length
+                          }
+                        </div>
+                        <div className="text-xs text-muted-foreground">Corrected</div>
+                      </div>
+                    </Card>
+                  </>
+                )}
+              </div>
+            )}
+
             <TabsContent value="questions" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium">Quiz Questions</h2>
@@ -188,56 +246,86 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
 
               <ScrollArea className="h-[60vh]">
                 <div className="space-y-4">
-                  {quizSession.quiz.questions.map((question) => (
-                    <Card key={question.id} className="overflow-hidden">
-                      <CardHeader className="p-4 pb-2">
-                        <div className="flex justify-between items-start">
-                          <Badge variant="outline">
-                            {question.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
-                          </Badge>
-                          <Badge variant="secondary">Q{question.order + 1}</Badge>
-                        </div>
-                        <CardTitle className="text-base mt-2">{question.text}</CardTitle>
-                      </CardHeader>
+                  {quizSession.quiz.questions.map((question) => {
+                    // Check if question was asked (has answers in current session)
+                    const wasAsked = answers.some((a) => a.questionId === question.id)
 
-                      {question.imageUrl && (
-                        <div className="px-4">
-                          <div className="w-full h-40 bg-muted rounded-md flex items-center justify-center">
-                            <img
-                              src={question.imageUrl || "/placeholder.svg"}
-                              alt="Question"
-                              className="max-w-full max-h-full object-contain"
-                            />
+                    // Check if question was corrected (all answers for this question are graded)
+                    const questionAnswers = answers.filter((a) => a.questionId === question.id)
+                    const wasCorreted =
+                      questionAnswers.length > 0 &&
+                      questionAnswers.every((a) => a.isCorrect !== undefined && a.isCorrect !== null)
+
+                    return (
+                      <Card key={question.id} className="overflow-hidden">
+                        <CardHeader className="p-4 pb-2">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">
+                                {question.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
+                              </Badge>
+                              <Badge variant="secondary">Q{question.order + 1}</Badge>
+
+                              {/* Status indicators */}
+                              {status === "active" && wasAsked && (
+                                <Badge variant="default" className="bg-blue-500">
+                                  Asked
+                                </Badge>
+                              )}
+                              {status === "correction" && wasAsked && (
+                                <Badge
+                                  variant="default"
+                                  className={wasCorreted ? "bg-green-500" : "bg-yellow-500"}
+                                >
+                                  {wasCorreted ? "Corrected" : "Needs Correction"}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                          <CardTitle className="text-base mt-2">{question.text}</CardTitle>
+                        </CardHeader>
 
-                      {question.type === "MULTIPLE_CHOICE" && (
-                        <CardContent className="p-4 pt-2">
-                          <div className="space-y-2 mt-2">
-                            {question.options.map((option, index) => (
-                              <div key={index} className="flex items-center gap-2 p-2 rounded-md border">
-                                <span className="text-xs font-medium bg-muted w-6 h-6 rounded-full flex items-center justify-center">
-                                  {String.fromCharCode(65 + index)}
-                                </span>
-                                <span className="text-sm">{option}</span>
-                              </div>
-                            ))}
+                        {question.imageUrl && (
+                          <div className="px-4">
+                            <div className="w-full h-40 bg-muted rounded-md flex items-center justify-center">
+                              <img
+                                src={question.imageUrl || "/placeholder.svg"}
+                                alt="Question"
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            </div>
                           </div>
-                        </CardContent>
-                      )}
+                        )}
 
-                      <CardFooter className="p-4 pt-0">
-                        {status !== "completed" && <Button
-                          onClick={() => handleSelectQuestion(question.id)}
-                          className="w-full"
-                          disabled={currentQuestion?.id === question.id}
-                        >
-                          {currentQuestion?.id === question.id ? "Current Question" : "Select Question"}
-                        </Button>}
-                      </CardFooter>
-                    </Card>
-                  ))}
+                        {question.type === "MULTIPLE_CHOICE" && (
+                          <CardContent className="p-4 pt-2">
+                            <div className="space-y-2 mt-2">
+                              {question.options.map((option, index) => (
+                                <div key={index} className="flex items-center gap-2 p-2 rounded-md border">
+                                  <span className="text-xs font-medium bg-muted w-6 h-6 rounded-full flex items-center justify-center">
+                                    {String.fromCharCode(65 + index)}
+                                  </span>
+                                  <span className="text-sm">{option}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        )}
+
+                        <CardFooter className="p-4 pt-0">
+                          {status !== "completed" && (
+                            <Button
+                              onClick={() => handleSelectQuestion(question.id)}
+                              className="w-full"
+                              disabled={currentQuestion?.id === question.id}
+                            >
+                              {currentQuestion?.id === question.id ? "Current Question" : "Select Question"}
+                            </Button>
+                          )}
+                        </CardFooter>
+                      </Card>
+                    )
+                  })}
 
                   {quizSession.quiz.questions.length === 0 && (
                     <div className="text-center py-10">
@@ -303,7 +391,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             )}
                           </div>
                         ) : (
-                          participant.id === quizSession.hostId && (<Badge variant="destructive">Host</Badge>)
+                          participant.id === quizSession.hostId && <Badge variant="destructive">Host</Badge>
                         )}
                       </div>
                     ))}
@@ -311,13 +399,15 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       <div className="p-4 bg-muted rounded-md">
                         {/* Hardcoded "Minus 1" because host can't reply */}
                         <p className="text-center text-muted-foreground">
-                          {answers.filter((a) => a.questionId === currentQuestion.id).length} of {participants.length - 1} answers
-                          received
+                          {answers.filter((a) => a.questionId === currentQuestion.id).length} of{" "}
+                          {participants.length - 1} answers received
                         </p>
                         <Progress
                           className="mt-2 border-primary"
                           value={
-                            (answers.filter((a) => a.questionId === currentQuestion.id).length / (participants.length - 1)) * 100
+                            (answers.filter((a) => a.questionId === currentQuestion.id).length /
+                              (participants.length - 1)) *
+                            100
                           }
                         />
                       </div>
@@ -422,7 +512,10 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                   {Object.entries(question.response ?? {}).map(([userId, response]) => {
                                     const participant = participants.find((p) => p.id === userId)
                                     return (
-                                      <div key={userId} className="flex items-start gap-2 p-2 rounded-md border items-center">
+                                      <div
+                                        key={userId}
+                                        className="flex items-start gap-2 p-2 rounded-md border items-center"
+                                      >
                                         {participant?.image ? (
                                           <img
                                             src={participant.image || "/placeholder.svg"}
@@ -441,16 +534,13 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                               variant={response.isCorrect ? "default" : "destructive"}
                                               className={response.isCorrect ? "bg-green-500" : "bg-red-500"}
                                             >
-                                              {response.isCorrect
-                                                ? `Correct (1 pts)`
-                                                : "Incorrect (0 pts)"}
+                                              {response.isCorrect ? `Correct (1 pts)` : "Incorrect (0 pts)"}
                                             </Badge>
                                           )}
                                         </div>
                                       </div>
                                     )
-                                  })
-                                  }
+                                  })}
                                 </div>
                               </CardContent>
                             </Card>
@@ -476,35 +566,47 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         </div>
 
                         <div className="space-y-2">
-                          {quizSession?.quiz?.questions?.map((question, index) => (
-                            <Card
-                              key={question.id}
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => selectCorrectionQuestion(question.id)}
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="outline">
-                                        Q{index + 1}
-                                      </Badge>
-                                      <p className="text-sm font-medium">{question.text}</p>
+                          {quizSession?.quiz?.questions?.map((question, index) => {
+
+                            const questionAnswers = answers.filter((a) => a.questionId === question.id)
+                            const wasCorreted =
+                              questionAnswers.length > 0 &&
+                              questionAnswers.every((a) => a.isCorrect !== undefined && a.isCorrect !== null)
+
+                            return (
+                              <Card
+                                key={question.id}
+                                className="cursor-pointer hover:bg-muted/50"
+                                onClick={() => selectCorrectionQuestion(question.id)}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="outline">Q{index + 1}</Badge>
+                                        <p className="text-sm font-medium">{question.text}</p>
+                                        <Badge
+                                          variant="default"
+                                          className={wasCorreted ? "bg-green-500" : "bg-yellow-500"}
+                                        >
+                                          {wasCorreted ? "Corrected" : "Needs Correction"}
+                                        </Badge>
+                                      </div>
+                                      {question.type === "MULTIPLE_CHOICE" && (
+                                        <p className="text-xs text-muted-foreground mt-1">Multiple Choice</p>
+                                      )}
+                                      {question.type === "FREE_ANSWER" && (
+                                        <p className="text-xs text-muted-foreground mt-1">Free Answer</p>
+                                      )}
                                     </div>
-                                    {question.type === "MULTIPLE_CHOICE" && (
-                                      <p className="text-xs text-muted-foreground mt-1">Multiple Choice</p>
-                                    )}
-                                    {question.type === "FREE_ANSWER" && (
-                                      <p className="text-xs text-muted-foreground mt-1">Free Answer</p>
-                                    )}
+                                    <Button variant="outline" size="sm">
+                                      Review Answers
+                                    </Button>
                                   </div>
-                                  <Button variant="outline" size="sm">
-                                    Review Answers
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
+                                </CardContent>
+                              </Card>
+                            )
+                          })}
                         </div>
                       </div>
                     ) : (
@@ -541,9 +643,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                     <h4 className="font-medium">Expected Answer</h4>
                                   </div>
                                   <Badge variant="outline">
-                                    {correctionQuestion.type === "MULTIPLE_CHOICE"
-                                      ? "Multiple Choice"
-                                      : "Free Answer"}
+                                    {correctionQuestion.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
                                   </Badge>
                                 </div>
                               </CardHeader>
@@ -595,22 +695,24 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                   <div className="flex gap-2">
                                     <Button
                                       variant="outline"
-                                      className={`flex-1 border-red-200 hover:bg-red-800 ${
-                                        currentShownAnswer.isCorrect === false ? "bg-red-500" : ""
-                                      }`}
-                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, false, 0)}
+                                      className={`flex-1 border-red-200 hover:bg-red-800 ${currentShownAnswer.isCorrect === false ? "bg-red-500" : ""
+                                        }`}
+                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer, false, 0)}
                                     >
-                                      <XCircle className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === false ? "" : "text-red-500"}`} />
+                                      <XCircle
+                                        className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === false ? "" : "text-red-500"}`}
+                                      />
                                       Incorrect (0 pts)
                                     </Button>
                                     <Button
                                       variant="outline"
-                                      className={`flex-1 border-green-200 hover:bg-green-800 ${
-                                        currentShownAnswer.isCorrect === true ? "bg-green-500" : ""
-                                      }`}
-                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer.id, true, 1)}
+                                      className={`flex-1 border-green-200 hover:bg-green-800 ${currentShownAnswer.isCorrect === true ? "bg-green-500" : ""
+                                        }`}
+                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer, true, 1)}
                                     >
-                                      <CheckCircle className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === true ? "" : "text-green-500"}`} />
+                                      <CheckCircle
+                                        className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === true ? "" : "text-green-500"}`}
+                                      />
                                       Correct (1 pt)
                                     </Button>
                                   </div>
@@ -729,7 +831,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                 </div>
                               </CardHeader>
                               <CardContent className="py-2 px-4">
-                                <p className="text-sm">(Answer hidden until correction phase)</p>
+                                <p className="text-sm">{answer.answer}</p>
                               </CardContent>
                             </Card>
                           )

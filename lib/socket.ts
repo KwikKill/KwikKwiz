@@ -6,9 +6,10 @@ import { prisma } from "@/lib/prisma"
 export type SessionState = {
   sessionId: string
   currentQuestion: any | null
-  participants: Map<string, { id: string; name: string; image: string, host: boolean }>
+  participants: Map<string, { id: string; name: string; image: string; host: boolean }>
   answers: Map<string, Map<string, { answer: string; submittedAt: Date }>>
   status: "waiting" | "active" | "correction" | "completed"
+  askedQuestions: Set<string>
   leaderboard?: Array<{
     userId: string
     name: string | null
@@ -22,10 +23,13 @@ export type SessionState = {
     type: "MULTIPLE_CHOICE" | "FREE_ANSWER"
     options?: string[]
     correctAnswer?: string | null
-    response?: Record<string, {
-      answer: string
-      isCorrect?: boolean | null
-    }>
+    response?: Record<
+      string,
+      {
+        answer: string
+        isCorrect?: boolean | null
+      }
+    >
   }[]
 }
 
@@ -92,6 +96,7 @@ export function initSocketServer(server: Server) {
             participants,
             answers: new Map(),
             status: session.status.toLowerCase() as "waiting" | "active" | "correction" | "completed",
+            askedQuestions: new Set(),
             leaderboard: [],
             questions: [],
           })
@@ -122,7 +127,7 @@ export function initSocketServer(server: Server) {
         }
 
         // If the session is completed, send the leaderboard and the details of the session
-        if (sessionState.status === "completed" && sessionState.leaderboard) {
+        if (sessionState.status === "completed" && sessionState.leaderboard?.length === 0) {
           // Get final leaderboard
           const leaderboard = await prisma.participation.findMany({
             where: { sessionId },
@@ -150,7 +155,7 @@ export function initSocketServer(server: Server) {
                 score: entry.score,
               })
             }
-          });
+          })
 
           // Get quizId
           const quiz = await prisma.quizSession.findUnique({
@@ -176,7 +181,7 @@ export function initSocketServer(server: Server) {
                 },
                 where: {
                   sessionId,
-                }
+                },
               },
             },
           })
@@ -191,19 +196,35 @@ export function initSocketServer(server: Server) {
                   type: question.type,
                   options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
                   correctAnswer: question.correctAnswer || null,
-                  response: question.answers.reduce((acc: Record<string, { answer: string; isCorrect?: boolean | null }>, answer) => {
-                    acc[answer.userId] = {
-                      answer: answer.answer,
-                      isCorrect: answer.isCorrect,
-                    }
-                    return acc
-                  }, {})
+                  response: question.answers.reduce(
+                    (acc: Record<string, { answer: string; isCorrect?: boolean | null }>, answer) => {
+                      acc[answer.userId] = {
+                        answer: answer.answer,
+                        isCorrect: answer.isCorrect,
+                      }
+                      return acc
+                    },
+                    {},
+                  ),
                 }
               }
               return undefined
             })
             .filter((question): question is NonNullable<typeof question> => question !== undefined)
         }
+
+        // Get all answers for this session to send to the client
+        const allAnswers = await prisma.playerAnswer.findMany({
+          where: { sessionId },
+          select: {
+            userId: true,
+            questionId: true,
+            answer: true,
+            isCorrect: true,
+            points: true,
+            submittedAt: true,
+          },
+        })
 
         // Send session state to the client
         socket.emit("session-state", {
@@ -213,6 +234,8 @@ export function initSocketServer(server: Server) {
           participants: Array.from(sessionState.participants.values()),
           leaderboard: sessionState.leaderboard || [],
           questions: sessionState.status === "completed" ? sessionState.questions : [],
+          askedQuestions: Array.from(sessionState.askedQuestions),
+          answers: allAnswers,
         })
       } catch (error) {
         console.error("Error joining session:", error)
@@ -260,6 +283,9 @@ export function initSocketServer(server: Server) {
             sessionState.currentQuestion = question
             sessionState.status = "active"
 
+            // Track that this question was asked
+            sessionState.askedQuestions.add(questionId)
+
             // Update session in database
             await prisma.quizSession.update({
               where: { id: sessionId },
@@ -290,7 +316,7 @@ export function initSocketServer(server: Server) {
               where: { id: sessionId },
               data: {
                 currentQuestionId: questionId,
-              }
+              },
             })
 
             // Notify all participants about the selected question
@@ -371,11 +397,13 @@ export function initSocketServer(server: Server) {
         // Acknowledge receipt
         socket.emit("answer-received", { questionId })
 
-        // Notify host
+        // Notify host with answer details
         socket.to(sessionId).emit("participant-answered", {
           participantId: userId,
           participantName: sessionState.participants.get(userId)?.name,
           questionId,
+          answer: answer,
+          submittedAt: new Date(),
         })
       } catch (error) {
         console.error("Error submitting answer:", error)
@@ -491,7 +519,7 @@ export function initSocketServer(server: Server) {
           where: { id: sessionId },
           data: {
             currentQuestionId: questionId,
-          }
+          },
         })
 
         // Notify all participants about the selected question
@@ -567,93 +595,95 @@ export function initSocketServer(server: Server) {
     })
 
     // Grade answer (update the existing event)
-    socket.on("grade-answer", async (data: {
-      sessionId: string
-      answerId: string
-      isCorrect: boolean
-      points: number
-    }) => {
-      try {
-        const { sessionId, answerId, isCorrect, points } = data
+    socket.on(
+      "grade-answer",
+      async (data: {
+        sessionId: string
+        answerId: string
+        isCorrect: boolean
+        points: number
+      }) => {
+        try {
+          const { sessionId, answerId, isCorrect, points } = data
 
-        // Check if user is the host
-        const session = await prisma.quizSession.findUnique({
-          where: { id: sessionId },
-          select: { hostId: true },
-        })
+          // Check if user is the host
+          const session = await prisma.quizSession.findUnique({
+            where: { id: sessionId },
+            select: { hostId: true },
+          })
 
-        if (!session || session.hostId !== userId) {
-          socket.emit("error", { message: "Only the host can grade answers" })
-          return
-        }
+          if (!session || session.hostId !== userId) {
+            socket.emit("error", { message: "Only the host can grade answers" })
+            return
+          }
 
-        // Update the answer in the database
-        const updatedAnswer = await prisma.playerAnswer.update({
-          where: { id: answerId },
-          data: {
-            isCorrect,
-            points,
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
+          // Update the answer in the database
+          const updatedAnswer = await prisma.playerAnswer.update({
+            where: { id: answerId },
+            data: {
+              isCorrect,
+              points,
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                },
               },
             },
-          },
-        })
+          })
 
-        // Update participant's score
-        const participation = await prisma.participation.findUnique({
-          where: {
-            sessionId_userId: {
-              sessionId,
+          // Update participant's score
+          const participation = await prisma.participation.findUnique({
+            where: {
+              sessionId_userId: {
+                sessionId,
+                userId: updatedAnswer.userId,
+              },
+            },
+          })
+
+          if (participation) {
+            // Get total points from all answers
+            const totalPoints = await prisma.playerAnswer.aggregate({
+              where: {
+                participationId: participation.id,
+              },
+              _sum: {
+                points: true,
+              },
+            })
+
+            // Update participation score
+            await prisma.participation.update({
+              where: {
+                id: participation.id,
+              },
+              data: {
+                score: totalPoints._sum.points || 0,
+              },
+            })
+          }
+
+          // Notify all participants about the grading
+          io.to(sessionId).emit("answer-graded", {
+            answer: {
+              id: updatedAnswer.id,
               userId: updatedAnswer.userId,
-            },
-          },
-        })
-
-        if (participation) {
-          // Get total points from all answers
-          const totalPoints = await prisma.playerAnswer.aggregate({
-            where: {
-              participationId: participation.id,
-            },
-            _sum: {
-              points: true,
+              userName: updatedAnswer.user.name,
+              userImage: updatedAnswer.user.image,
+              answer: updatedAnswer.answer,
+              isCorrect: updatedAnswer.isCorrect,
+              points: updatedAnswer.points,
             },
           })
-
-          // Update participation score
-          await prisma.participation.update({
-            where: {
-              id: participation.id,
-            },
-            data: {
-              score: totalPoints._sum.points || 0,
-            },
-          })
+        } catch (error) {
+          console.error("Error grading answer:", error)
+          socket.emit("error", { message: "Failed to grade answer" })
         }
-
-        // Notify all participants about the grading
-        io.to(sessionId).emit("answer-graded", {
-          answer: {
-            id: updatedAnswer.id,
-            userId: updatedAnswer.userId,
-            userName: updatedAnswer.user.name,
-            userImage: updatedAnswer.user.image,
-            answer: updatedAnswer.answer,
-            isCorrect: updatedAnswer.isCorrect,
-            points: updatedAnswer.points,
-          },
-        })
-      } catch (error) {
-        console.error("Error grading answer:", error)
-        socket.emit("error", { message: "Failed to grade answer" })
-      }
-    },
+      },
     )
 
     // Check if correction is complete
@@ -727,11 +757,69 @@ export function initSocketServer(server: Server) {
                   score: entry.score,
                 })
               }
-            });
+            })
+
+            sessionState.leaderboard = leaderboard_state
+
+            // Get quizId
+            const quiz = await prisma.quizSession.findUnique({
+              where: { id: sessionId },
+              select: { quizId: true },
+            })
+
+            // compute the questions and their responses
+            const questions = await prisma.question.findMany({
+              where: { quizId: quiz?.quizId },
+              select: {
+                id: true,
+                text: true,
+                imageUrl: true,
+                type: true,
+                options: true,
+                correctAnswer: true,
+                answers: {
+                  select: {
+                    userId: true,
+                    answer: true,
+                    isCorrect: true,
+                  },
+                  where: {
+                    sessionId,
+                  },
+                },
+              },
+            })
+
+            sessionState.questions = questions
+              .map((question) => {
+                if (question.answers.length !== 0) {
+                  return {
+                    id: question.id,
+                    text: question.text,
+                    imageUrl: question.imageUrl || null,
+                    type: question.type,
+                    options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
+                    correctAnswer: question.correctAnswer || null,
+                    response: question.answers.reduce(
+                      (acc: Record<string, { answer: string; isCorrect?: boolean | null }>, answer) => {
+                        acc[answer.userId] = {
+                          answer: answer.answer,
+                          isCorrect: answer.isCorrect,
+                        }
+                        return acc
+                      },
+                      {},
+                    ),
+                  }
+                }
+                return undefined
+              })
+              .filter((question): question is NonNullable<typeof question> => question !== undefined)
 
             // Notify all participants
             io.to(sessionId).emit("session-ended", {
               leaderboard: leaderboard_state,
+              questions: sessionState.questions,
             })
 
             // Clean up session state after some time
@@ -808,7 +896,7 @@ export function initSocketServer(server: Server) {
                 score: entry.score,
               })
             }
-          });
+          })
 
           // Get quizId
           const quiz = await prisma.quizSession.findUnique({
@@ -834,7 +922,7 @@ export function initSocketServer(server: Server) {
                 },
                 where: {
                   sessionId,
-                }
+                },
               },
             },
           })
@@ -849,13 +937,16 @@ export function initSocketServer(server: Server) {
                   type: question.type,
                   options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
                   correctAnswer: question.correctAnswer || null,
-                  response: question.answers.reduce((acc: Record<string, { answer: string; isCorrect?: boolean | null }>, answer) => {
-                    acc[answer.userId] = {
-                      answer: answer.answer,
-                      isCorrect: answer.isCorrect,
-                    }
-                    return acc
-                  }, {})
+                  response: question.answers.reduce(
+                    (acc: Record<string, { answer: string; isCorrect?: boolean | null }>, answer) => {
+                      acc[answer.userId] = {
+                        answer: answer.answer,
+                        isCorrect: answer.isCorrect,
+                      }
+                      return acc
+                    },
+                    {},
+                  ),
                 }
               }
               return undefined
