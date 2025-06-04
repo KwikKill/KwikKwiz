@@ -162,6 +162,15 @@ export function useQuizSession(sessionId: string, isHost = false) {
     [socket, isConnected, sessionId, isHost],
   )
 
+  const sendEmojiReaction = useCallback(
+    (emoji: string) => {
+      if (socket && isConnected) {
+        socket.emit("send-emoji", { sessionId, emoji })
+      }
+    },
+    [socket, isConnected, sessionId],
+  )
+
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
@@ -350,6 +359,13 @@ export function useQuizSession(sessionId: string, isHost = false) {
       })
     }
 
+    const handleEmojiReaction = (data: any) => {
+      // Trigger floating emoji animation
+      if ((window as any).addEmojiReaction) {
+        ;(window as any).addEmojiReaction(data.emoji)
+      }
+    }
+
     socket.on("session-state", handleSessionState)
     socket.on("new-question", handleNewQuestion)
     socket.on("timer-updated", handleTimerUpdate)
@@ -362,6 +378,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
     socket.on("error", handleError)
     socket.on("correction-question-selected", handleCorrectionQuestionSelected)
     socket.on("correction-answer-shown", handleCorrectionAnswerShown)
+    socket.on("emoji-reaction", handleEmojiReaction)
 
     return () => {
       socket.off("session-state", handleSessionState)
@@ -376,6 +393,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
       socket.off("error", handleError)
       socket.off("correction-question-selected", handleCorrectionQuestionSelected)
       socket.off("correction-answer-shown", handleCorrectionAnswerShown)
+      socket.off("emoji-reaction", handleEmojiReaction)
     }
   }, [socket, toast, isHost, askedQuestions])
 
@@ -405,5 +423,6 @@ export function useQuizSession(sessionId: string, isHost = false) {
     showCorrectionAnswer,
     gradeCorrectionAnswer,
     updateTimerDuration,
+    sendEmojiReaction,
   }
 }

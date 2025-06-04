@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label"
 import { useQuizSession } from "@/lib/hooks/use-quiz-session"
 import { useToast } from "@/hooks/use-toast"
 import { Users, Clock, CheckCircle, XCircle, AlertCircle, Trophy, Share, Timer } from "lucide-react"
+import { EmojiSelector } from "@/components/emoji-selector"
+import { EmojiRain } from "@/components/emoji-rain"
 
 interface Question {
   id: string
@@ -80,7 +82,12 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     showCorrectionAnswer,
     gradeCorrectionAnswer,
     updateTimerDuration,
+    sendEmojiReaction,
   } = useQuizSession(sessionId, true)
+
+  const handleEmojiSelect = (emoji: string) => {
+    sendEmojiReaction(emoji)
+  }
 
   useEffect(() => {
     if (authSession?.user?.id && sessionId) {
@@ -156,7 +163,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
   }
 
   if (isLoading) {
@@ -249,7 +256,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                 {status === "active" && timerDuration && (
                   <Card className="p-3">
                     <div className="text-center">
-                      <div className={`text-2xl font-bold ${timeRemaining !== null && timeRemaining <= 10 ? 'text-red-500' : 'text-blue-500'}`}>
+                      <div
+                        className={`text-2xl font-bold ${timeRemaining !== null && timeRemaining <= 10 ? "text-red-500" : "text-blue-500"}`}
+                      >
                         {timeRemaining !== null ? formatTime(timeRemaining) : formatTime(timerDuration)}
                       </div>
                       <div className="text-xs text-muted-foreground">Time Remaining</div>
@@ -391,10 +400,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                 </Badge>
                               )}
                               {status === "correction" && wasAsked && (
-                                <Badge
-                                  variant="default"
-                                  className={wasCorreted ? "bg-green-500" : "bg-yellow-500"}
-                                >
+                                <Badge variant="default" className={wasCorreted ? "bg-green-500" : "bg-yellow-500"}>
                                   {wasCorreted ? "Corrected" : "Needs Correction"}
                                 </Badge>
                               )}
@@ -494,34 +500,36 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           <div className="flex items-center gap-2">
                             {participant.id === quizSession.hostId ? (
                               <Badge variant="destructive">Host</Badge>
-                            ) : (() => {
-                              const participantAnswer = answers.find(
-                                (a) => a.userId === participant.id && a.questionId === currentQuestion.id,
-                              )
+                            ) : (
+                              (() => {
+                                const participantAnswer = answers.find(
+                                  (a) => a.userId === participant.id && a.questionId === currentQuestion.id,
+                                )
 
-                              if (participantAnswer) {
-                                return (
-                                  <Badge variant="outline">
-                                    <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
-                                    Answered
-                                  </Badge>
-                                )
-                              } else if (timeRemaining === 0 || !isTimerActive) {
-                                return (
-                                  <Badge variant="destructive">
-                                    <Clock className="h-3 w-3 mr-1" />
-                                    Timeout
-                                  </Badge>
-                                )
-                              } else {
-                                return (
-                                  <Badge variant="outline">
-                                    <Clock className="h-3 w-3 mr-1 text-yellow-500" />
-                                    Waiting
-                                  </Badge>
-                                )
-                              }
-                            })()}
+                                if (participantAnswer) {
+                                  return (
+                                    <Badge variant="outline">
+                                      <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                                      Answered
+                                    </Badge>
+                                  )
+                                } else if (timeRemaining === 0 || !isTimerActive) {
+                                  return (
+                                    <Badge variant="destructive">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      Timeout
+                                    </Badge>
+                                  )
+                                } else {
+                                  return (
+                                    <Badge variant="outline">
+                                      <Clock className="h-3 w-3 mr-1 text-yellow-500" />
+                                      Waiting
+                                    </Badge>
+                                  )
+                                }
+                              })()
+                            )}
                           </div>
                         ) : (
                           participant.id === quizSession.hostId && <Badge variant="destructive">Host</Badge>
@@ -533,13 +541,14 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         {(() => {
                           const answeredCount = answers.filter((a) => a.questionId === currentQuestion.id).length
                           const totalParticipants = participants.length - 1 // Minus host
-                          const timeoutCount = (timeRemaining === 0 || !isTimerActive) ? totalParticipants - answeredCount : 0
+                          const timeoutCount =
+                            timeRemaining === 0 || !isTimerActive ? totalParticipants - answeredCount : 0
                           const completedCount = answeredCount + timeoutCount
 
                           return (
                             <>
                               <p className="text-center text-muted-foreground">
-                                {answeredCount} answered, {timeoutCount > 0 ? `${timeoutCount} timeout, ` : ''}
+                                {answeredCount} answered, {timeoutCount > 0 ? `${timeoutCount} timeout, ` : ""}
                                 {completedCount} of {totalParticipants} completed
                               </p>
                               <Progress
@@ -548,8 +557,10 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                               />
                               {timeRemaining !== null && (
                                 <div className="mt-2 text-center">
-                                  <span className={`text-sm font-medium ${timeRemaining <= 10 ? 'text-red-500' : 'text-muted-foreground'}`}>
-                                    {isTimerActive ? `${formatTime(timeRemaining)} remaining` : 'Time expired'}
+                                  <span
+                                    className={`text-sm font-medium ${timeRemaining <= 10 ? "text-red-500" : "text-muted-foreground"}`}
+                                  >
+                                    {isTimerActive ? `${formatTime(timeRemaining)} remaining` : "Time expired"}
                                   </span>
                                 </div>
                               )}
@@ -713,7 +724,6 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
 
                         <div className="space-y-2">
                           {quizSession?.quiz?.questions?.map((question, index) => {
-
                             const questionAnswers = answers.filter((a) => a.questionId === question.id)
                             const wasCorreted =
                               questionAnswers.length > 0 &&
@@ -959,8 +969,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       {timeRemaining !== null && (
                         <div className="mt-2 flex items-center gap-2">
                           <Timer className="h-4 w-4" />
-                          <span className={`text-sm font-medium ${timeRemaining <= 10 ? 'text-red-500' : ''}`}>
-                            {isTimerActive ? `${formatTime(timeRemaining)} remaining` : 'Time expired'}
+                          <span className={`text-sm font-medium ${timeRemaining <= 10 ? "text-red-500" : ""}`}>
+                            {isTimerActive ? `${formatTime(timeRemaining)} remaining` : "Time expired"}
                           </span>
                         </div>
                       )}
@@ -1006,9 +1016,10 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       {/* Show timeout participants when time is up */}
                       {(timeRemaining === 0 || !isTimerActive) &&
                         participants
-                          .filter((p) =>
-                            p.id !== quizSession.hostId &&
-                            !answers.some((a) => a.userId === p.id && a.questionId === currentQuestion.id)
+                          .filter(
+                            (p) =>
+                              p.id !== quizSession.hostId &&
+                              !answers.some((a) => a.userId === p.id && a.questionId === currentQuestion.id),
                           )
                           .map((participant) => (
                             <Card key={`timeout-${participant.id}`} className="border border-red-200">
@@ -1038,8 +1049,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                 <p className="text-sm text-muted-foreground italic">No answer submitted</p>
                               </CardContent>
                             </Card>
-                          ))
-                      }
+                          ))}
 
                       {answers.filter((a) => a.questionId === currentQuestion.id).length === 0 &&
                         (timeRemaining === null || timeRemaining > 0) && (
@@ -1174,6 +1184,13 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
       </div>
+      {/* Floating Emoji Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <EmojiSelector onEmojiSelect={handleEmojiSelect} />
+      </div>
+
+      {/* Emoji Rain Container */}
+      <EmojiRain />
     </div>
   )
 }

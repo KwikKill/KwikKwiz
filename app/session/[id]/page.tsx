@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Sparkles, Users, Trophy, AlertCircle, Timer, Clock } from "lucide-react"
 import Confetti from "react-confetti"
+import { EmojiSelector } from "@/components/emoji-selector"
+import { EmojiRain } from "@/components/emoji-rain"
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const [sessionId, setSessionId] = useState<string>("")
@@ -62,6 +64,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     timerDuration,
     joinSession,
     submitAnswer,
+    sendEmojiReaction,
   } = useQuizSession(sessionId, isHost)
 
   const [selectedAnswer, setSelectedAnswer] = useState("")
@@ -160,9 +163,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             <Sparkles className="h-5 w-5 text-primary" />
             Waiting Room: {quizDetails.name || quizDetails.quiz.name}
           </CardTitle>
-          <CardDescription>
-            {quizDetails.description && (quizDetails.description)}
-          </CardDescription>
+          <CardDescription>{quizDetails.description && quizDetails.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-muted p-4 rounded-md text-center">
@@ -194,7 +195,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 <span>Temps par question :</span>
                 <Badge variant="secondary">
                   {quizDetails.timerDuration >= 60
-                    ? `${Math.floor(quizDetails.timerDuration / 60)}m ${quizDetails.timerDuration % 60 ? quizDetails.timerDuration % 60 + "s" : ""}`.trim()
+                    ? `${Math.floor(quizDetails.timerDuration / 60)}m ${quizDetails.timerDuration % 60 ? (quizDetails.timerDuration % 60) + "s" : ""}`.trim()
                     : `${quizDetails.timerDuration}s`}
                 </Badge>
               </div>
@@ -750,5 +751,23 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     </div>
   )
 
-  return <div className="p-10">{renderSessionContent()}</div>
+  const handleEmojiSelect = (emoji: string) => {
+    sendEmojiReaction(emoji)
+  }
+
+  return (
+    <div className="p-10">
+      {renderSessionContent()}
+
+      {/* Floating Emoji Button */}
+      {!isHost && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <EmojiSelector onEmojiSelect={handleEmojiSelect} />
+        </div>
+      )}
+
+      {/* Emoji Rain Container */}
+      <EmojiRain />
+    </div>
+  )
 }

@@ -248,7 +248,6 @@ export function initSocketServer(server: Server) {
         }
 
         if (sessionState.status === "correction") {
-          
           // Get all answers for this question
           const answers = await prisma.playerAnswer.findMany({
             where: {
@@ -308,6 +307,33 @@ export function initSocketServer(server: Server) {
       } catch (error) {
         console.error("Error joining session:", error)
         socket.emit("error", { message: "Failed to join session" })
+      }
+    })
+
+    // Send emoji reaction
+    socket.on("send-emoji", async (data: { sessionId: string; emoji: string }) => {
+      try {
+        const { sessionId, emoji } = data
+
+        // Verify user is in the session
+        const sessionState = sessionStates.get(sessionId)
+        if (!sessionState || !sessionState.participants.has(userId)) {
+          socket.emit("error", { message: "You are not in this session" })
+          return
+        }
+
+        const participant = sessionState.participants.get(userId)
+
+        // Broadcast emoji to all participants in the session
+        io.to(sessionId).emit("emoji-reaction", {
+          emoji,
+          userId,
+          userName: participant?.name || "Anonymous",
+          userImage: participant?.image || "",
+        })
+      } catch (error) {
+        console.error("Error sending emoji:", error)
+        socket.emit("error", { message: "Failed to send emoji" })
       }
     })
 
