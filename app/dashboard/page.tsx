@@ -1,43 +1,47 @@
-'use client';
+"use client"
 
-import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Clock, Users, Trophy } from "lucide-react";
-import Link from "next/link";
-import { format } from "date-fns";
-import { useRouter } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
+import { useSession } from "next-auth/react"
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Sparkles, Clock, Users, Calendar, Timer } from "lucide-react"
+import Link from "next/link"
+import { format } from "date-fns"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 interface Quiz {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  questionsCount: number;
+  id: string
+  name: string
+  description: string | null
+  createdAt: string
+  questionsCount: number
 }
 
 interface Session {
-  id: string;
-  code: string;
-  quizName: string;
-  status: string;
-  startedAt: string | null;
-  participantsCount: number;
-  hostId: string;
+  id: string
+  code: string
+  name: string
+  quizName: string
+  description: string | null
+  sessionDate: string | null
+  status: string
+  startedAt: string | null
+  participantsCount: number
+  hostId: string
+  timerDuration: number | null
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const { data: session, status } = useSession();
-  const [recentQuizzes, setRecentQuizzes] = useState<Quiz[]>([]);
-  const [activeSessions, setActiveSessions] = useState<Session[]>([]);
-  const [participantSessions, setParticipantSessions] = useState<Session[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
+  const router = useRouter()
+  const { toast } = useToast()
+  const { data: session, status } = useSession()
+  const [recentQuizzes, setRecentQuizzes] = useState<Quiz[]>([])
+  const [activeSessions, setActiveSessions] = useState<Session[]>([])
+  const [participantSessions, setParticipantSessions] = useState<Session[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const joinSession = async (code: string) => {
     try {
@@ -47,24 +51,24 @@ export default function DashboardPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ code: code.trim() }),
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to join session");
+        throw new Error(data.error || "Failed to join session")
       }
 
       // Redirect to the session page
-      router.push(`/session/${data.sessionId}`);
+      router.push(`/session/${data.sessionId}`)
     } catch (error) {
       toast({
         title: "Error joining session",
         description: error instanceof Error ? error.message : "Failed to join session",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -74,15 +78,15 @@ export default function DashboardPage() {
       fetch("/api/quizzes/recent")
         .then((res) => res.json())
         .then((data) => {
-          setRecentQuizzes(data);
+          setRecentQuizzes(data)
         })
-        .catch((error) => console.error("Failed to fetch recent quizzes:", error));
+        .catch((error) => console.error("Failed to fetch recent quizzes:", error))
 
       // Fetch active sessions
       fetch("/api/sessions/active")
         .then((res) => res.json())
         .then((data) => {
-          setActiveSessions(data);
+          setActiveSessions(data)
         })
         .catch((error) => console.error("Failed to fetch active sessions:", error))
 
@@ -90,12 +94,12 @@ export default function DashboardPage() {
       fetch("/api/sessions/participant")
         .then((res) => res.json())
         .then((data) => {
-          setParticipantSessions(data);
+          setParticipantSessions(data)
         })
         .catch((error) => console.error("Failed to fetch active sessions:", error))
-        .finally(() => setIsLoading(false));
+        .finally(() => setIsLoading(false))
     }
-  }, [status]);
+  }, [status])
 
   if (status === "loading") {
     return (
@@ -105,7 +109,24 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
-    );
+    )
+  }
+
+  const formatSessionDate = (dateString: string | null) => {
+    if (!dateString) return null
+    try {
+      return format(new Date(dateString), "PPp")
+    } catch {
+      return null
+    }
+  }
+
+  const formatTimerDuration = (seconds: number | null) => {
+    if (!seconds) return null
+    if (seconds < 60) return `${seconds}s`
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`
   }
 
   return (
@@ -113,9 +134,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back, {session?.user?.name || "User"}!
-          </p>
+          <p className="text-muted-foreground">Welcome back, {session?.user?.name || "User"}!</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -126,9 +145,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{activeSessions.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Live quiz sessions you can join
-              </p>
+              <p className="text-xs text-muted-foreground">Live quiz sessions you can join</p>
             </CardContent>
           </Card>
           <Card>
@@ -138,9 +155,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{participantSessions.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Sessions you've participated in
-              </p>
+              <p className="text-xs text-muted-foreground">Sessions you've participated in</p>
             </CardContent>
           </Card>
           {session?.user?.isAdmin && (
@@ -152,9 +167,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{recentQuizzes.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Quizzes you've created
-                  </p>
+                  <p className="text-xs text-muted-foreground">Quizzes you've created</p>
                 </CardContent>
               </Card>
             </>
@@ -164,12 +177,8 @@ export default function DashboardPage() {
         <Tabs defaultValue="active-sessions" className="space-y-4">
           <TabsList>
             <TabsTrigger value="active-sessions">Active Sessions</TabsTrigger>
-            <TabsTrigger value="participant-sessions">
-              Your Participated Sessions
-            </TabsTrigger>
-            {session?.user?.isAdmin && (
-              <TabsTrigger value="your-quizzes">Your Quizzes</TabsTrigger>
-            )}
+            <TabsTrigger value="participant-sessions">Your Participated Sessions</TabsTrigger>
+            {session?.user?.isAdmin && <TabsTrigger value="your-quizzes">Your Quizzes</TabsTrigger>}
           </TabsList>
           <TabsContent value="active-sessions" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -179,34 +188,59 @@ export default function DashboardPage() {
                 activeSessions.map((_session) => (
                   <Card key={_session.id} className="overflow-hidden">
                     <CardHeader>
-                      <CardTitle>{_session.quizName}</CardTitle>
-                      <CardDescription>
-                        Session Code: <span className="font-mono">{_session.code}</span>
-                      </CardDescription>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{_session.name}</CardTitle>
+                          <CardDescription className="mt-1">Quiz: {_session.quizName}</CardDescription>
+                        </div>
+                        <Badge variant="outline" className="ml-2">
+                          {_session.code}
+                        </Badge>
+                      </div>
+                      {_session.description && (
+                        <p className="text-sm text-muted-foreground mt-2">{_session.description}</p>
+                      )}
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Users className="h-4 w-4" />
-                        <span>{_session.participantsCount} participants</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm mt-2">
-                        <Clock className="h-4 w-4" />
-                        <span>
-                          {_session.startedAt
-                            ? `Started ${format(new Date(_session.startedAt), "PPp")}`
-                            : "Not started yet"}
-                        </span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Users className="h-4 w-4" />
+                          <span>{_session.participantsCount} participants</span>
+                        </div>
+
+                        {_session.sessionDate && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4" />
+                            <span>{formatSessionDate(_session.sessionDate)}</span>
+                          </div>
+                        )}
+
+                        {_session.timerDuration && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Timer className="h-4 w-4" />
+                            <span>{formatTimerDuration(_session.timerDuration)} per question</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {_session.startedAt
+                              ? `Started ${format(new Date(_session.startedAt), "PPp")}`
+                              : "Not started yet"}
+                          </span>
+                        </div>
                       </div>
                     </CardContent>
                     <CardFooter>
                       {_session.hostId === session?.user?.userId ? (
-                      <Link href={`/admin/sessions/${_session.id}/host`} className="w-full">
-                        <Button className="w-full">Host Session</Button>
-                      </Link>
+                        <Link href={`/admin/sessions/${_session.id}/host`} className="w-full">
+                          <Button className="w-full">Host Session</Button>
+                        </Link>
                       ) : (
-                      <Button className="w-full" onClick={() => joinSession(_session.code)}>
-                        Join Session
-                      </Button>
+                        <Button className="w-full" onClick={() => joinSession(_session.code)}>
+                          Join Session
+                        </Button>
                       )}
                     </CardFooter>
                   </Card>
@@ -234,23 +268,48 @@ export default function DashboardPage() {
                 participantSessions.map((_session) => (
                   <Card key={_session.id} className="overflow-hidden">
                     <CardHeader>
-                      <CardTitle>{_session.quizName}</CardTitle>
-                      <CardDescription>
-                        Session Code: <span className="font-mono">{_session.code}</span>
-                      </CardDescription>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{_session.name}</CardTitle>
+                          <CardDescription className="mt-1">Quiz: {_session.quizName}</CardDescription>
+                        </div>
+                        <Badge variant="outline" className="ml-2">
+                          {_session.code}
+                        </Badge>
+                      </div>
+                      {_session.description && (
+                        <p className="text-sm text-muted-foreground mt-2">{_session.description}</p>
+                      )}
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Users className="h-4 w-4" />
-                        <span>{_session.participantsCount} participants</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm mt-2">
-                        <Clock className="h-4 w-4" />
-                        <span>
-                          {_session.startedAt
-                            ? `Started ${format(new Date(_session.startedAt), "PPp")}`
-                            : "Not started yet"}
-                        </span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Users className="h-4 w-4" />
+                          <span>{_session.participantsCount} participants</span>
+                        </div>
+
+                        {_session.sessionDate && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4" />
+                            <span>{formatSessionDate(_session.sessionDate)}</span>
+                          </div>
+                        )}
+
+                        {_session.timerDuration && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Timer className="h-4 w-4" />
+                            <span>{formatTimerDuration(_session.timerDuration)} per question</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {_session.startedAt
+                              ? `Started ${format(new Date(_session.startedAt), "PPp")}`
+                              : "Not started yet"}
+                          </span>
+                        </div>
                       </div>
                     </CardContent>
                     <CardFooter>
@@ -260,7 +319,7 @@ export default function DashboardPage() {
                         </Link>
                       ) : (
                         <Button className="w-full" onClick={() => joinSession(_session.code)}>
-                          { _session.status === "COMPLETED" ? 'Show Results' : 'Join Session'}
+                          {_session.status === "COMPLETED" ? "Show Results" : "Join Session"}
                         </Button>
                       )}
                     </CardFooter>
@@ -270,7 +329,9 @@ export default function DashboardPage() {
                 <div className="col-span-full text-center py-10">
                   <p className="text-muted-foreground">You haven't participated in any sessions yet.</p>
                   <Link href="/quiz/join">
-                    <Button variant="outline" className="mt-2">Join a Session with Code</Button>
+                    <Button variant="outline" className="mt-2">
+                      Join a Session with Code
+                    </Button>
                   </Link>
                 </div>
               )}
@@ -292,9 +353,7 @@ export default function DashboardPage() {
                     <Card key={quiz.id}>
                       <CardHeader>
                         <CardTitle>{quiz.name}</CardTitle>
-                        <CardDescription>
-                          {quiz.description || "No description"}
-                        </CardDescription>
+                        <CardDescription>{quiz.description || "No description"}</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center gap-2 text-sm">
@@ -332,5 +391,5 @@ export default function DashboardPage() {
         </Tabs>
       </div>
     </div>
-  );
+  )
 }

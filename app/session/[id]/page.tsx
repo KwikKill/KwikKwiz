@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Sparkles, Users, Trophy, AlertCircle } from "lucide-react"
+import { Sparkles, Users, Trophy, AlertCircle, Timer, Clock } from "lucide-react"
 import Confetti from "react-confetti"
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,6 +57,9 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     correctionQuestion,
     correctionAnswers,
     currentShownAnswer,
+    timeRemaining,
+    isTimerActive,
+    timerDuration,
     joinSession,
     submitAnswer,
   } = useQuizSession(sessionId, isHost)
@@ -127,6 +130,12 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     )
   }
 
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
+  }
+
   // Render different views based on session status
   const renderSessionContent = () => {
     switch (status) {
@@ -149,18 +158,52 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Waiting Room: {quizDetails.quiz.name}
+            Waiting Room: {quizDetails.name || quizDetails.quiz.name}
           </CardTitle>
           <CardDescription>
-            {isHost
-              ? "Your quiz session is ready. Participants can join using the code below."
-              : "Waiting for the host to start the quiz..."}
+            {quizDetails.description && (quizDetails.description)}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-muted p-4 rounded-md text-center">
             <div className="text-sm font-medium text-muted-foreground">Session Code:</div>
             <div className="text-3xl font-bold tracking-widest">{quizDetails.code}</div>
+          </div>
+
+          {/* Session Info */}
+          <div className="flex flex-col justify-center items-start gap-2 items-center">
+            {quizDetails.sessionDate && (
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4" />
+                <span>Planifié :</span>
+                <Badge variant="secondary">
+                  {new Date(quizDetails.sessionDate).toLocaleDateString("fr-FR", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Badge>
+              </div>
+            )}
+            {quizDetails.timerDuration && (
+              <div className="flex items-center gap-2 text-sm">
+                <Timer className="h-4 w-4" />
+                <span>Temps par question :</span>
+                <Badge variant="secondary">
+                  {quizDetails.timerDuration >= 60
+                    ? `${Math.floor(quizDetails.timerDuration / 60)}m ${quizDetails.timerDuration % 60 ? quizDetails.timerDuration % 60 + "s" : ""}`.trim()
+                    : `${quizDetails.timerDuration}s`}
+                </Badge>
+              </div>
+            )}
+            <span>
+              {isHost
+                ? "Your quiz session is ready. Participants can join using the code below."
+                : "Waiting for the host to start the quiz..."}
+            </span>
           </div>
 
           <div className="space-y-2">
@@ -221,9 +264,21 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
               <Badge variant="outline">
                 {currentQuestion.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
               </Badge>
-              <Badge variant={isConnected ? "outline" : "destructive"}>
-                {isConnected ? "Connected" : "Disconnected"}
-              </Badge>
+
+              <div className="flex items-center gap-2">
+                {isTimerActive && timeRemaining !== null && (
+                  <Badge
+                    variant={timeRemaining <= 10 ? "destructive" : "secondary"}
+                    className="flex items-center gap-1"
+                  >
+                    <Timer className="h-3 w-3" />
+                    {formatTime(timeRemaining)}
+                  </Badge>
+                )}
+                <Badge variant={isConnected ? "outline" : "destructive"}>
+                  {isConnected ? "Connected" : "Disconnected"}
+                </Badge>
+              </div>
             </div>
             <CardTitle className="text-xl mt-2">{currentQuestion.text}</CardTitle>
           </CardHeader>
@@ -244,7 +299,11 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             {!isHost && (
               <>
                 {currentQuestion.type === "MULTIPLE_CHOICE" ? (
-                  <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer} disabled={hasSubmitted}>
+                  <RadioGroup
+                    value={selectedAnswer}
+                    onValueChange={setSelectedAnswer}
+                    disabled={hasSubmitted || (timeRemaining !== null && timeRemaining <= 0)}
+                  >
                     <div className="space-y-3">
                       {currentQuestion.options?.map((option: string, index: number) => (
                         <div key={index} className="flex items-center space-x-2">
@@ -261,7 +320,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                     placeholder="Type your answer here..."
                     value={selectedAnswer}
                     onChange={(e) => setSelectedAnswer(e.target.value)}
-                    disabled={hasSubmitted}
+                    disabled={hasSubmitted || (timeRemaining !== null && timeRemaining <= 0)}
                     rows={4}
                   />
                 )}
@@ -291,9 +350,9 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
               <Button
                 onClick={() => submitAnswer(currentQuestion.id, selectedAnswer)}
                 className="w-full"
-                disabled={!selectedAnswer || hasSubmitted}
+                disabled={!selectedAnswer || hasSubmitted || (timeRemaining !== null && timeRemaining <= 0)}
               >
-                {hasSubmitted ? "Answer Submitted" : "Submit Answer"}
+                {hasSubmitted ? "Answer Submitted" : timeRemaining === 0 ? "Time's Up" : "Submit Answer"}
               </Button>
             )}
 
@@ -321,8 +380,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           <CardContent>
             <div className="text-sm space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Quiz:</span>
-                <span>{quizDetails.quiz.name}</span>
+                <span className="text-muted-foreground">Session:</span>
+                <span>{quizDetails.name || quizDetails.quiz.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Participants:</span>
@@ -332,6 +391,12 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 <span className="text-muted-foreground">Status:</span>
                 <Badge variant="secondary">{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>
               </div>
+              {timerDuration && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Timer:</span>
+                  <span>{timerDuration}s per question</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -481,7 +546,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
-            Quiz Results: {quizDetails.quiz.name}
+            Quiz Results: {quizDetails.name || quizDetails.quiz.name}
           </CardTitle>
           <CardDescription>The quiz session has ended. Here are the final results.</CardDescription>
         </CardHeader>

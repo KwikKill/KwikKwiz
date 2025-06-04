@@ -31,6 +31,17 @@ export type SessionState = {
       }
     >
   }[]
+  timerDuration: number | null
+  questionStartTime: Date | null
+  currentShownAnswer: {
+    id: string
+    userId: string
+    userName: string
+    userImage: string
+    answer: string
+    isCorrect?: boolean | null
+    points?: number | null
+  } | null
 }
 
 export const sessionStates = new Map<string, SessionState>()
@@ -99,6 +110,9 @@ export function initSocketServer(server: Server) {
             askedQuestions: new Set(),
             leaderboard: [],
             questions: [],
+            timerDuration: session.timerDuration,
+            questionStartTime: null,
+            currentShownAnswer: null,
           })
         }
 
@@ -226,17 +240,71 @@ export function initSocketServer(server: Server) {
           },
         })
 
-        // Send session state to the client
-        socket.emit("session-state", {
-          sessionId,
-          status: sessionState.status,
-          currentQuestion: sessionState.currentQuestion,
-          participants: Array.from(sessionState.participants.values()),
-          leaderboard: sessionState.leaderboard || [],
-          questions: sessionState.status === "completed" ? sessionState.questions : [],
-          askedQuestions: Array.from(sessionState.askedQuestions),
-          answers: allAnswers,
-        })
+        // Calculate remaining time if there's an active question with timer
+        let timeRemaining = null
+        if (sessionState.currentQuestion && sessionState.timerDuration && sessionState.questionStartTime) {
+          const elapsed = Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000)
+          timeRemaining = Math.max(0, sessionState.timerDuration - elapsed)
+        }
+
+        if (sessionState.status === "correction") {
+          
+          // Get all answers for this question
+          const answers = await prisma.playerAnswer.findMany({
+            where: {
+              sessionId,
+              questionId: sessionState.currentQuestion?.id,
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                },
+              },
+            },
+          })
+
+          // Send session state to the client
+          socket.emit("session-state", {
+            sessionId,
+            status: sessionState.status,
+            currentQuestion: sessionState.currentQuestion,
+            participants: Array.from(sessionState.participants.values()),
+            leaderboard: sessionState.leaderboard || [],
+            questions: [],
+            askedQuestions: Array.from(sessionState.askedQuestions),
+            answers: allAnswers,
+            timerDuration: sessionState.timerDuration,
+            timeRemaining,
+            correctionQuestion: sessionState.currentQuestion,
+            correctionAnswers: answers.map((answer) => ({
+              id: answer.id,
+              userId: answer.userId,
+              userName: answer.user.name,
+              userImage: answer.user.image,
+              answer: answer.answer,
+              isCorrect: answer.isCorrect,
+              points: answer.points,
+            })),
+            currentShownAnswer: sessionState.currentShownAnswer || null,
+          })
+        } else {
+          // Send session state to the client
+          socket.emit("session-state", {
+            sessionId,
+            status: sessionState.status,
+            currentQuestion: sessionState.currentQuestion,
+            participants: Array.from(sessionState.participants.values()),
+            leaderboard: sessionState.leaderboard || [],
+            questions: sessionState.status === "completed" ? sessionState.questions : [],
+            askedQuestions: Array.from(sessionState.askedQuestions),
+            answers: allAnswers,
+            timerDuration: sessionState.timerDuration,
+            timeRemaining,
+          })
+        }
       } catch (error) {
         console.error("Error joining session:", error)
         socket.emit("error", { message: "Failed to join session" })
@@ -282,6 +350,7 @@ export function initSocketServer(server: Server) {
           if (sessionState.status === "waiting" || sessionState.status === "active") {
             sessionState.currentQuestion = question
             sessionState.status = "active"
+            sessionState.questionStartTime = new Date()
 
             // Track that this question was asked
             sessionState.askedQuestions.add(questionId)
@@ -296,6 +365,12 @@ export function initSocketServer(server: Server) {
               },
             })
 
+            // Calculate time remaining
+            let timeRemaining = null
+            if (sessionState.timerDuration) {
+              timeRemaining = sessionState.timerDuration
+            }
+
             // Broadcast the question to all participants
             io.to(sessionId).emit("new-question", {
               status: sessionState.status,
@@ -306,6 +381,8 @@ export function initSocketServer(server: Server) {
                 type: question.type,
                 options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
               },
+              timerDuration: sessionState.timerDuration,
+              timeRemaining,
             })
           } else if (sessionState.status === "correction") {
             // If in correction mode, just update the current question
@@ -346,6 +423,17 @@ export function initSocketServer(server: Server) {
         if (!sessionState || sessionState.status !== "active") {
           socket.emit("error", { message: "Cannot submit answer at this time" })
           return
+        }
+
+        // Check if timer has expired (with 1 second grace period)
+        if (sessionState.timerDuration && sessionState.questionStartTime) {
+          const elapsed = Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000)
+          const timeLimit = sessionState.timerDuration + 1 // 1 second grace period
+
+          if (elapsed > timeLimit) {
+            socket.emit("error", { message: "Time limit exceeded" })
+            return
+          }
         }
 
         // Initialize answers map for this question if not exists
@@ -411,6 +499,42 @@ export function initSocketServer(server: Server) {
       }
     })
 
+    // Update timer duration
+    socket.on("update-timer", async (data: { sessionId: string; timerDuration: number | null }) => {
+      try {
+        const { sessionId, timerDuration } = data
+
+        // Check if user is the host
+        const session = await prisma.quizSession.findUnique({
+          where: { id: sessionId },
+          select: { hostId: true },
+        })
+
+        if (!session || session.hostId !== userId) {
+          socket.emit("error", { message: "Only the host can update timer settings" })
+          return
+        }
+
+        // Update session state
+        const sessionState = sessionStates.get(sessionId)
+        if (sessionState) {
+          sessionState.timerDuration = timerDuration
+        }
+
+        // Update session in database
+        await prisma.quizSession.update({
+          where: { id: sessionId },
+          data: { timerDuration },
+        })
+
+        // Notify all participants
+        io.to(sessionId).emit("timer-updated", { timerDuration })
+      } catch (error) {
+        console.error("Error updating timer:", error)
+        socket.emit("error", { message: "Failed to update timer" })
+      }
+    })
+
     // Start correction round
     socket.on("start-correction", async (data: { sessionId: string }) => {
       try {
@@ -431,6 +555,7 @@ export function initSocketServer(server: Server) {
         const sessionState = sessionStates.get(sessionId)
         if (sessionState) {
           sessionState.status = "correction"
+          sessionState.questionStartTime = null // Clear timer
 
           // Update session in database
           await prisma.quizSession.update({
@@ -570,6 +695,26 @@ export function initSocketServer(server: Server) {
             },
           },
         })
+        if (!answer) {
+          socket.emit("error", { message: "Answer not found" })
+          return
+        }
+
+        const sessionState = sessionStates.get(sessionId)
+        if (!sessionState || sessionState.status !== "correction") {
+          socket.emit("error", { message: "Session is not in correction mode" })
+          return
+        }
+
+        sessionState.currentShownAnswer = {
+          id: answer.id,
+          userId: answer.userId,
+          userName: answer.user.name || "Anonymous",
+          userImage: answer.user.image || "",
+          answer: answer.answer,
+          isCorrect: answer.isCorrect,
+          points: answer.points,
+        }
 
         if (!answer) {
           socket.emit("error", { message: "Answer not found" })
@@ -578,15 +723,7 @@ export function initSocketServer(server: Server) {
 
         // Notify all participants about the shown answer
         io.to(sessionId).emit("correction-answer-shown", {
-          answer: {
-            id: answer.id,
-            userId: answer.userId,
-            userName: answer.user.name,
-            userImage: answer.user.image,
-            answer: answer.answer,
-            isCorrect: answer.isCorrect,
-            points: answer.points,
-          },
+          answer: sessionState.currentShownAnswer,
         })
       } catch (error) {
         console.error("Error showing correction answer:", error)
@@ -715,6 +852,7 @@ export function initSocketServer(server: Server) {
           const sessionState = sessionStates.get(sessionId)
           if (sessionState) {
             sessionState.status = "completed"
+            sessionState.questionStartTime = null // Clear timer
 
             // Update session in database
             await prisma.quizSession.update({
@@ -854,6 +992,7 @@ export function initSocketServer(server: Server) {
         const sessionState = sessionStates.get(sessionId)
         if (sessionState) {
           sessionState.status = "completed"
+          sessionState.questionStartTime = null // Clear timer
 
           // Update session in database
           await prisma.quizSession.update({

@@ -100,6 +100,10 @@ model QuizSession {
   updatedAt     DateTime        @updatedAt
   participants  Participation[]
   answers       PlayerAnswer[]
+  name          String?
+  description   String?
+  sessionDate   DateTime?
+  timerDuration Int?
 }
 
 enum SessionStatus {

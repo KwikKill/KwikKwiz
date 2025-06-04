@@ -9,9 +9,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useQuizSession } from "@/lib/hooks/use-quiz-session"
 import { useToast } from "@/hooks/use-toast"
-import { Users, Clock, CheckCircle, XCircle, AlertCircle, Trophy, Share } from "lucide-react"
+import { Users, Clock, CheckCircle, XCircle, AlertCircle, Trophy, Share, Timer } from "lucide-react"
 
 interface Question {
   id: string
@@ -25,9 +27,13 @@ interface Question {
 interface QuizSessionDetails {
   id: string
   code: string
+  name: string
+  description: string | null
+  sessionDate: string | null
   quizId: string
   hostId: string
   status: "waiting" | "active" | "correction" | "completed"
+  timerDuration: number | null
   quiz: {
     id: string
     name: string
@@ -51,6 +57,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
   const [quizSession, setQuizSession] = useState<QuizSessionDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [currentTab, setCurrentTab] = useState("questions")
+  const [newTimerDuration, setNewTimerDuration] = useState<string>("")
 
   const {
     status,
@@ -63,12 +70,16 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     correctionQuestion,
     correctionAnswers,
     currentShownAnswer,
+    timerDuration,
+    timeRemaining,
+    isTimerActive,
     selectQuestion,
     startCorrection,
     endSession,
     selectCorrectionQuestion,
     showCorrectionAnswer,
     gradeCorrectionAnswer,
+    updateTimerDuration,
   } = useQuizSession(sessionId, true)
 
   useEffect(() => {
@@ -84,6 +95,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
         })
         .then((data) => {
           setQuizSession(data)
+          setNewTimerDuration(data.timerDuration?.toString() || "")
 
           // Check if user is the host
           if (data.hostId !== authSession.user?.userId) {
@@ -124,6 +136,29 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     setCurrentTab("participants")
   }
 
+  const handleUpdateTimer = () => {
+    const duration = Number.parseInt(newTimerDuration)
+    if (isNaN(duration) || duration < 0) {
+      updateTimerDuration(null)
+      toast({
+        title: "Timer disabled",
+        description: "Questions will have no time limit",
+      })
+    } else {
+      updateTimerDuration(duration)
+      toast({
+        title: "Timer updated",
+        description: `Questions will have ${duration} seconds`,
+      })
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -157,8 +192,11 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
         <div className="md:col-span-2 space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold">{quizSession.quiz.name}</h1>
+              <h1 className="text-2xl font-bold">{quizSession.name}</h1>
               <p className="text-muted-foreground">Host Interface</p>
+              {quizSession.description && (
+                <p className="text-sm text-muted-foreground mt-1">{quizSession.description}</p>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -166,6 +204,12 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                 {isConnected ? "Connected" : "Disconnected"}
               </Badge>
               <Badge variant="secondary">{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>
+              {isTimerActive && timeRemaining !== null && (
+                <Badge variant={timeRemaining <= 10 ? "destructive" : "default"} className="flex items-center gap-1">
+                  <Timer className="h-3 w-3" />
+                  {formatTime(timeRemaining)}
+                </Badge>
+              )}
               <Button variant="outline" size="sm" onClick={handleCopySessionCode}>
                 <Share className="h-4 w-4 mr-1" />
                 {quizSession.code}
@@ -174,10 +218,11 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
           </div>
 
           <Tabs defaultValue="questions" value={currentTab} onValueChange={setCurrentTab}>
-            <TabsList className="grid grid-cols-3 mb-4">
+            <TabsList className="grid grid-cols-4 mb-4">
               <TabsTrigger value="questions">Questions</TabsTrigger>
               <TabsTrigger value="participants">Participants</TabsTrigger>
               <TabsTrigger value="responses">Responses</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
             {/* Status Summary */}
@@ -197,6 +242,17 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         {new Set(answers.map((a) => a.questionId)).size}
                       </div>
                       <div className="text-xs text-muted-foreground">Questions Asked</div>
+                    </div>
+                  </Card>
+                )}
+
+                {status === "active" && timerDuration && (
+                  <Card className="p-3">
+                    <div className="text-center">
+                      <div className={`text-2xl font-bold ${timeRemaining !== null && timeRemaining <= 10 ? 'text-red-500' : 'text-blue-500'}`}>
+                        {timeRemaining !== null ? formatTime(timeRemaining) : formatTime(timerDuration)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Time Remaining</div>
                     </div>
                   </Card>
                 )}
@@ -237,6 +293,68 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                 )}
               </div>
             )}
+
+            <TabsContent value="settings" className="border rounded-md p-4">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium mb-4">Session Settings</h2>
+
+                  <div className="space-y-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="timer-duration">Timer Duration (seconds)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="timer-duration"
+                          type="number"
+                          placeholder="e.g., 30 (0 to disable)"
+                          value={newTimerDuration}
+                          onChange={(e) => setNewTimerDuration(e.target.value)}
+                          min="0"
+                          max="3600"
+                          className="flex-1"
+                        />
+                        <Button onClick={handleUpdateTimer} variant="outline">
+                          Update
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Current: {timerDuration ? `${timerDuration} seconds` : "No timer"}
+                      </p>
+                    </div>
+
+                    <div className="bg-muted p-4 rounded-md">
+                      <h3 className="font-medium mb-2">Session Information</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Session Name:</span>
+                          <span>{quizSession.name}</span>
+                        </div>
+                        {quizSession.description && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Description:</span>
+                            <span className="text-right max-w-xs">{quizSession.description}</span>
+                          </div>
+                        )}
+                        {quizSession.sessionDate && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Scheduled:</span>
+                            <span>{new Date(quizSession.sessionDate).toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Quiz:</span>
+                          <span>{quizSession.quiz.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Questions:</span>
+                          <span>{quizSession.quiz.questions.length}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
 
             <TabsContent value="questions" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4">
@@ -376,19 +494,34 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           <div className="flex items-center gap-2">
                             {participant.id === quizSession.hostId ? (
                               <Badge variant="destructive">Host</Badge>
-                            ) : answers.some(
-                              (a) => a.userId === participant.id && a.questionId === currentQuestion.id,
-                            ) ? (
-                              <Badge variant="outline">
-                                <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
-                                Answered
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline">
-                                <Clock className="h-3 w-3 mr-1 text-yellow-500" />
-                                Waiting
-                              </Badge>
-                            )}
+                            ) : (() => {
+                              const participantAnswer = answers.find(
+                                (a) => a.userId === participant.id && a.questionId === currentQuestion.id,
+                              )
+
+                              if (participantAnswer) {
+                                return (
+                                  <Badge variant="outline">
+                                    <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                                    Answered
+                                  </Badge>
+                                )
+                              } else if (timeRemaining === 0 || !isTimerActive) {
+                                return (
+                                  <Badge variant="destructive">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Timeout
+                                  </Badge>
+                                )
+                              } else {
+                                return (
+                                  <Badge variant="outline">
+                                    <Clock className="h-3 w-3 mr-1 text-yellow-500" />
+                                    Waiting
+                                  </Badge>
+                                )
+                              }
+                            })()}
                           </div>
                         ) : (
                           participant.id === quizSession.hostId && <Badge variant="destructive">Host</Badge>
@@ -397,19 +530,32 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                     ))}
                     {currentQuestion && status === "active" && (
                       <div className="p-4 bg-muted rounded-md">
-                        {/* Hardcoded "Minus 1" because host can't reply */}
-                        <p className="text-center text-muted-foreground">
-                          {answers.filter((a) => a.questionId === currentQuestion.id).length} of{" "}
-                          {participants.length - 1} answers received
-                        </p>
-                        <Progress
-                          className="mt-2 border-primary"
-                          value={
-                            (answers.filter((a) => a.questionId === currentQuestion.id).length /
-                              (participants.length - 1)) *
-                            100
-                          }
-                        />
+                        {(() => {
+                          const answeredCount = answers.filter((a) => a.questionId === currentQuestion.id).length
+                          const totalParticipants = participants.length - 1 // Minus host
+                          const timeoutCount = (timeRemaining === 0 || !isTimerActive) ? totalParticipants - answeredCount : 0
+                          const completedCount = answeredCount + timeoutCount
+
+                          return (
+                            <>
+                              <p className="text-center text-muted-foreground">
+                                {answeredCount} answered, {timeoutCount > 0 ? `${timeoutCount} timeout, ` : ''}
+                                {completedCount} of {totalParticipants} completed
+                              </p>
+                              <Progress
+                                className="mt-2 border-primary"
+                                value={(completedCount / totalParticipants) * 100}
+                              />
+                              {timeRemaining !== null && (
+                                <div className="mt-2 text-center">
+                                  <span className={`text-sm font-medium ${timeRemaining <= 10 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                    {isTimerActive ? `${formatTime(timeRemaining)} remaining` : 'Time expired'}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
@@ -433,9 +579,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
             <TabsContent value="responses" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4 w-full">
                 {status === "completed" ? (
-                  <h2 className="text-lg font-medium text-center w-full">Final Results</h2>
+                  <h2 className="text-lg font-medium">Final Results</h2>
                 ) : (
-                  <h2 className="text-lg font-medium text-center w-full">Responses</h2>
+                  <h2 className="text-lg font-medium">Responses</h2>
                 )}
                 <div className="flex gap-2">
                   {status === "active" && (
@@ -807,14 +953,21 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                     )}
                   </div>
                 ) : currentQuestion ? (
-                  // Active session content (existing code)
                   <div className="space-y-4">
                     <div className="bg-muted p-4 rounded-md">
-                      <h3 className="font-medium">Current Question</h3>
                       <p className="mt-1">{currentQuestion.text}</p>
+                      {timeRemaining !== null && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Timer className="h-4 w-4" />
+                          <span className={`text-sm font-medium ${timeRemaining <= 10 ? 'text-red-500' : ''}`}>
+                            {isTimerActive ? `${formatTime(timeRemaining)} remaining` : 'Time expired'}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">
+                      {/* Show answered participants */}
                       {answers
                         .filter((a) => a.questionId === currentQuestion.id)
                         .map((answer) => {
@@ -823,9 +976,22 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             <Card key={`${answer.userId}-${answer.questionId}`} className="border">
                               <CardHeader className="py-3 px-4">
                                 <div className="flex justify-between items-center">
-                                  <h4 className="text-sm font-medium">{participant?.name || "Unknown User"}</h4>
+                                  <div className="flex items-center gap-2">
+                                    {participant?.image ? (
+                                      <img
+                                        src={participant.image || "/placeholder.svg"}
+                                        alt={participant.name || "Unknown"}
+                                        className="w-8 h-8 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                                        {participant?.name?.charAt(0).toUpperCase() || "?"}
+                                      </div>
+                                    )}
+                                    <h4 className="text-sm font-medium">{participant?.name || "Unknown User"}</h4>
+                                  </div>
                                   <Badge variant="outline">
-                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
                                     Submitted
                                   </Badge>
                                 </div>
@@ -837,12 +1003,51 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           )
                         })}
 
-                      {answers.filter((a) => a.questionId === currentQuestion.id).length === 0 && (
-                        <div className="text-center py-8">
-                          <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-                          <p className="mt-2 text-muted-foreground">No answers submitted yet</p>
-                        </div>
-                      )}
+                      {/* Show timeout participants when time is up */}
+                      {(timeRemaining === 0 || !isTimerActive) &&
+                        participants
+                          .filter((p) =>
+                            p.id !== quizSession.hostId &&
+                            !answers.some((a) => a.userId === p.id && a.questionId === currentQuestion.id)
+                          )
+                          .map((participant) => (
+                            <Card key={`timeout-${participant.id}`} className="border border-red-200">
+                              <CardHeader className="py-3 px-4">
+                                <div className="flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                    {participant.image ? (
+                                      <img
+                                        src={participant.image || "/placeholder.svg"}
+                                        alt={participant.name || "Unknown"}
+                                        className="w-8 h-8 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                                        {participant.name?.charAt(0).toUpperCase() || "?"}
+                                      </div>
+                                    )}
+                                    <h4 className="text-sm font-medium">{participant.name}</h4>
+                                  </div>
+                                  <Badge variant="destructive">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Timeout
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="py-2 px-4">
+                                <p className="text-sm text-muted-foreground italic">No answer submitted</p>
+                              </CardContent>
+                            </Card>
+                          ))
+                      }
+
+                      {answers.filter((a) => a.questionId === currentQuestion.id).length === 0 &&
+                        (timeRemaining === null || timeRemaining > 0) && (
+                          <div className="text-center py-8">
+                            <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
+                            <p className="mt-2 text-muted-foreground">No answers submitted yet</p>
+                          </div>
+                        )}
                     </div>
                   </div>
                 ) : (

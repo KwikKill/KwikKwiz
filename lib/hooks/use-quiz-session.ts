@@ -60,6 +60,9 @@ export function useQuizSession(sessionId: string, isHost = false) {
   const [correctionAnswers, setCorrectionAnswers] = useState<any[]>([])
   const [currentShownAnswer, setCurrentShownAnswer] = useState<any | null>(null)
   const [askedQuestions, setAskedQuestions] = useState<string[]>([])
+  const [timerDuration, setTimerDuration] = useState<number | null>(null)
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
+  const [isTimerActive, setIsTimerActive] = useState(false)
 
   const joinSession = useCallback(() => {
     if (socket && isConnected && sessionId) {
@@ -79,13 +82,13 @@ export function useQuizSession(sessionId: string, isHost = false) {
 
   const submitAnswer = useCallback(
     (questionId: string, answer: string) => {
-      if (socket && isConnected && !isHost) {
+      if (socket && isConnected && !isHost && !hasSubmitted) {
         socket.emit("submit-answer", { sessionId, questionId, answer })
         setUserAnswer(answer)
         setHasSubmitted(true)
       }
     },
-    [socket, isConnected, sessionId, isHost],
+    [socket, isConnected, sessionId, isHost, hasSubmitted],
   )
 
   const startCorrection = useCallback(() => {
@@ -128,7 +131,13 @@ export function useQuizSession(sessionId: string, isHost = false) {
           socket.emit("check-correction-complete", { sessionId })
         }, 100)
 
-        console.log("Grading answer:", { sessionId, answer, isCorrect, points, correctionQuestionId: correctionQuestion?.id })
+        console.log("Grading answer:", {
+          sessionId,
+          answer,
+          isCorrect,
+          points,
+          correctionQuestionId: correctionQuestion?.id,
+        })
 
         // Update answer state immediately for the host
         setAnswers((prev) =>
@@ -144,6 +153,47 @@ export function useQuizSession(sessionId: string, isHost = false) {
     [socket, isConnected, sessionId, isHost, answers],
   )
 
+  const updateTimerDuration = useCallback(
+    (duration: number | null) => {
+      if (socket && isConnected && isHost) {
+        socket.emit("update-timer", { sessionId, timerDuration: duration })
+      }
+    },
+    [socket, isConnected, sessionId, isHost],
+  )
+
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    if (isTimerActive && timeRemaining !== null && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev === null || prev <= 1) {
+            setIsTimerActive(false)
+            // Auto-submit if user hasn't submitted and time is up
+            if (!hasSubmitted && currentQuestion && !isHost && status === "active") {
+              setHasSubmitted(true)
+              toast({
+                title: "Time's up!",
+                description: "Time limit reached for this question",
+                variant: "destructive",
+              })
+            }
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } else if (timeRemaining === 0) {
+      setIsTimerActive(false)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isTimerActive, timeRemaining, hasSubmitted, currentQuestion, isHost, toast, status])
+
   useEffect(() => {
     joinSession()
   }, [joinSession, isHost])
@@ -158,7 +208,23 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setLeaderboard(data.leaderboard || [])
       setQuestions(data.questions || [])
       setAskedQuestions(data.askedQuestions || [])
-      setAnswers(data.answers || []) // Add this line
+      setAnswers(data.answers || [])
+      setTimerDuration(data.timerDuration || null)
+
+      if (status === "correction") {
+        setCorrectionQuestion(data.correctionQuestion || null)
+        setCorrectionAnswers(data.correctionAnswers || [])
+        setCurrentShownAnswer(data.currentShownAnswer || null)
+      }
+
+      // Set timer state if there's an active question with remaining time
+      if (data.timeRemaining !== null && data.timeRemaining !== undefined) {
+        setTimeRemaining(data.timeRemaining)
+        setIsTimerActive(data.timeRemaining > 0)
+      } else {
+        setTimeRemaining(null)
+        setIsTimerActive(false)
+      }
     }
 
     const handleNewQuestion = (data: any) => {
@@ -167,17 +233,32 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setUserAnswer(null)
       setHasSubmitted(false)
 
+      // Start timer if duration is set
+      if (data.timerDuration && data.timerDuration > 0) {
+        setTimeRemaining(data.timeRemaining || data.timerDuration)
+        setIsTimerActive(true)
+      } else {
+        setTimeRemaining(null)
+        setIsTimerActive(false)
+      }
+
       // Track that this question was asked
       if (data.question?.id && !askedQuestions.includes(data.question.id)) {
         setAskedQuestions((prev) => [...prev, data.question.id])
       }
     }
 
+    const handleTimerUpdate = (data: any) => {
+      setTimerDuration(data.timerDuration)
+    }
+
     const handleParticipantJoined = (data: any) => {
       if (data.participant) {
         // If the participant is already in the list, do not add again
-        if (participants.some((p) => p.id === data.participant.id)) return
-        setParticipants((prev) => [...prev, data.participant])
+        setParticipants((prev) => {
+          if (prev.some((p) => p.id === data.participant.id)) return prev
+          return [...prev, data.participant]
+        })
       }
     }
 
@@ -222,6 +303,8 @@ export function useQuizSession(sessionId: string, isHost = false) {
     const handleCorrectionStarted = (data: any) => {
       setStatus("correction")
       setQuestions(data.questions || [])
+      setIsTimerActive(false)
+      setTimeRemaining(null)
       toast({
         title: "Correction round started",
         description: isHost ? "You can now review and grade all answers" : "The host is now reviewing all answers",
@@ -251,6 +334,8 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setStatus("completed")
       setLeaderboard(data.leaderboard)
       setQuestions(data.questions || [])
+      setIsTimerActive(false)
+      setTimeRemaining(null)
       toast({
         title: "Session ended",
         description: "The quiz session has ended",
@@ -267,6 +352,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
 
     socket.on("session-state", handleSessionState)
     socket.on("new-question", handleNewQuestion)
+    socket.on("timer-updated", handleTimerUpdate)
     socket.on("participant-joined", handleParticipantJoined)
     socket.on("answer-received", handleAnswerReceived)
     socket.on("participant-answered", handleParticipantAnswered)
@@ -276,11 +362,11 @@ export function useQuizSession(sessionId: string, isHost = false) {
     socket.on("error", handleError)
     socket.on("correction-question-selected", handleCorrectionQuestionSelected)
     socket.on("correction-answer-shown", handleCorrectionAnswerShown)
-    socket.on("answer-graded", handleAnswerGraded)
 
     return () => {
       socket.off("session-state", handleSessionState)
       socket.off("new-question", handleNewQuestion)
+      socket.off("timer-updated", handleTimerUpdate)
       socket.off("participant-joined", handleParticipantJoined)
       socket.off("answer-received", handleAnswerReceived)
       socket.off("participant-answered", handleParticipantAnswered)
@@ -290,9 +376,8 @@ export function useQuizSession(sessionId: string, isHost = false) {
       socket.off("error", handleError)
       socket.off("correction-question-selected", handleCorrectionQuestionSelected)
       socket.off("correction-answer-shown", handleCorrectionAnswerShown)
-      socket.off("answer-graded", handleAnswerGraded)
     }
-  }, [socket, toast, isHost])
+  }, [socket, toast, isHost, askedQuestions])
 
   return {
     status,
@@ -308,6 +393,9 @@ export function useQuizSession(sessionId: string, isHost = false) {
     correctionAnswers,
     currentShownAnswer,
     askedQuestions,
+    timerDuration,
+    timeRemaining,
+    isTimerActive,
     joinSession,
     selectQuestion,
     submitAnswer,
@@ -316,5 +404,6 @@ export function useQuizSession(sessionId: string, isHost = false) {
     selectCorrectionQuestion,
     showCorrectionAnswer,
     gradeCorrectionAnswer,
+    updateTimerDuration,
   }
 }
