@@ -1,8 +1,8 @@
-'use client';
+'use client'
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -10,30 +10,30 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
 
 export default function JoinQuizPage() {
-  const [sessionCode, setSessionCode] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const { toast } = useToast();
+  const [sessionCode, setSessionCode] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
 
   const handleJoinSession = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+    e.preventDefault()
+
     if (!sessionCode.trim()) {
       toast({
-        title: "Session code required",
-        description: "Please enter a valid session code",
+        title: "Code de session requis",
+        description: "Veuillez entrer un code de session valide",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
-    
-    setIsLoading(true);
-    
+
+    setIsLoading(true)
+
     try {
       const response = await fetch(`/api/sessions/join`, {
         method: "POST",
@@ -41,35 +41,33 @@ export default function JoinQuizPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ code: sessionCode.trim() }),
-      });
-      
-      const data = await response.json();
-      
+      })
+
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error(data.error || "Failed to join session");
+        throw new Error(data.error || "Échec de la connexion à la session")
       }
-      
+
       // Redirect to the session page
-      router.push(`/session/${data.sessionId}`);
+      router.push(`/session/${data.sessionId}`)
     } catch (error) {
       toast({
-        title: "Error joining session",
-        description: error instanceof Error ? error.message : "Failed to join session",
+        title: "Erreur lors de la connexion à la session",
+        description: error instanceof Error ? error.message : "Échec de la connexion à la session",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className="container py-10 max-w-md mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Join a Quiz Session</CardTitle>
-          <CardDescription>
-            Enter the session code provided by the quiz host
-          </CardDescription>
+          <CardTitle>Rejoindre une session de kwiz</CardTitle>
+          <CardDescription>Entrez le code de session fourni par l'hôte du kwiz</CardDescription>
         </CardHeader>
         <form onSubmit={handleJoinSession}>
           <CardContent>
@@ -77,7 +75,7 @@ export default function JoinQuizPage() {
               <div className="grid gap-2">
                 <Input
                   id="session-code"
-                  placeholder="Enter session code"
+                  placeholder="Entrez le code de session"
                   value={sessionCode}
                   onChange={(e) => setSessionCode(e.target.value)}
                   className="text-center uppercase tracking-widest text-xl font-mono"
@@ -88,23 +86,19 @@ export default function JoinQuizPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
-                  Joining...
+                  Connexion en cours...
                 </>
               ) : (
-                "Join Quiz"
+                "Rejoindre le kwiz"
               )}
             </Button>
           </CardFooter>
         </form>
       </Card>
     </div>
-  );
+  )
 }

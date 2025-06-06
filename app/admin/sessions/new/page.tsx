@@ -73,8 +73,8 @@ function CreateSessionContent() {
   const handleCreateSession = async () => {
     if (!selectedQuizId) {
       toast({
-        title: "Quiz selection required",
-        description: "Please select a quiz for the session",
+        title: "Sélection de kwiz requise",
+        description: "Veuillez sélectionner un kwiz pour la session",
         variant: "destructive",
       })
       return
@@ -82,8 +82,8 @@ function CreateSessionContent() {
 
     if (!sessionName.trim()) {
       toast({
-        title: "Session name required",
-        description: "Please enter a name for the session",
+        title: "Nom de session requis",
+        description: "Veuillez entrer un nom pour la session",
         variant: "destructive",
       })
       return
@@ -115,20 +115,20 @@ function CreateSessionContent() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create session")
+        throw new Error(data.error || "Échec de la création de la session")
       }
 
       toast({
-        title: "Session created successfully",
-        description: `Session code: ${data.code}`,
+        title: "Session créée avec succès",
+        description: `Code de session : ${data.code}`,
       })
 
       // Redirect to the session host page
       router.push(`/admin/sessions/${data.id}/host`)
     } catch (error) {
       toast({
-        title: "Error creating session",
-        description: error instanceof Error ? error.message : "Failed to create session",
+        title: "Erreur lors de la création de la session",
+        description: error instanceof Error ? error.message : "Échec de la création de la session",
         variant: "destructive",
       })
     } finally {
@@ -142,8 +142,8 @@ function CreateSessionContent() {
       <div className="container py-10">
         <Card>
           <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>You don't have permission to create quiz sessions.</CardDescription>
+            <CardTitle>Accès refusé</CardTitle>
+            <CardDescription>Vous n'avez pas la permission de créer des sessions de kwiz.</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -154,19 +154,19 @@ function CreateSessionContent() {
     <div className="container py-10 max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Create a New Quiz Session</CardTitle>
-          <CardDescription>Configure your quiz session settings</CardDescription>
+          <CardTitle>Créer une nouvelle session de kwiz</CardTitle>
+          <CardDescription>Configurez les paramètres de votre session de kwiz</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
             <div className="grid gap-2">
-              <Label htmlFor="quiz-select">Select Quiz *</Label>
+              <Label htmlFor="quiz-select">Sélectionner un kwiz *</Label>
               {isLoading ? (
                 <div className="h-10 bg-muted animate-pulse rounded-md"></div>
               ) : (
                 <Select value={selectedQuizId} onValueChange={setSelectedQuizId} disabled={isSubmitting}>
                   <SelectTrigger id="quiz-select">
-                    <SelectValue placeholder="Select a quiz" />
+                    <SelectValue placeholder="Sélectionnez un kwiz" />
                   </SelectTrigger>
                   <SelectContent>
                     {quizzes.length > 0 ? (
@@ -177,7 +177,7 @@ function CreateSessionContent() {
                       ))
                     ) : (
                       <SelectItem value="no-quizzes" disabled>
-                        No quizzes available
+                        Aucun quiz disponible
                       </SelectItem>
                     )}
                   </SelectContent>
@@ -186,10 +186,10 @@ function CreateSessionContent() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="session-name">Session Name *</Label>
+              <Label htmlFor="session-name">Nom de la session *</Label>
               <Input
                 id="session-name"
-                placeholder="Enter session name"
+                placeholder="Entrez le nom de la session"
                 value={sessionName}
                 onChange={(e) => setSessionName(e.target.value)}
                 disabled={isSubmitting}
@@ -197,10 +197,10 @@ function CreateSessionContent() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="session-description">Session Description</Label>
+              <Label htmlFor="session-description">Description de la session</Label>
               <Textarea
                 id="session-description"
-                placeholder="Enter session description (optional)"
+                placeholder="Entrez la description de la session (optionnel)"
                 value={sessionDescription}
                 onChange={(e) => setSessionDescription(e.target.value)}
                 disabled={isSubmitting}
@@ -209,7 +209,7 @@ function CreateSessionContent() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="session-date">Session Date</Label>
+              <Label htmlFor="session-date">Date de la session</Label>
               <Input
                 id="session-date"
                 type="datetime-local"
@@ -220,7 +220,7 @@ function CreateSessionContent() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="timer-duration">Timer Duration (seconds)</Label>
+              <Label htmlFor="timer-duration">Durée du minuteur (secondes)</Label>
               <Input
                 id="timer-duration"
                 type="number"
@@ -232,13 +232,13 @@ function CreateSessionContent() {
                 max="3600"
               />
               <p className="text-sm text-muted-foreground">
-                Optional: Set a countdown timer for each question (1-3600 seconds)
+                Optionnel : Définir un minuteur de compte à rebours pour chaque question (1-3600 secondes)
               </p>
             </div>
 
             {selectedQuizId && quizzes.length > 0 && (
               <div className="bg-muted p-4 rounded-md">
-                <h3 className="text-sm font-medium mb-1">Selected Quiz</h3>
+                <h3 className="text-sm font-medium mb-1">kwiz sélectionné</h3>
                 <p className="text-sm text-muted-foreground">
                   {quizzes.find((q) => q.id === selectedQuizId)?.description || "No description provided"}
                 </p>
@@ -247,9 +247,9 @@ function CreateSessionContent() {
 
             {quizzes.length === 0 && !isLoading && (
               <div className="bg-muted p-4 rounded-md">
-                <p className="text-sm text-muted-foreground text-center">You haven't created any quizzes yet.</p>
+                <p className="text-sm text-muted-foreground text-center">Vous n'avez pas encore créé de kwiz.</p>
                 <Button variant="link" className="w-full mt-2" onClick={() => router.push("/admin/quizzes/new")}>
-                  Create a quiz first
+                  Créez d'abord un kwiz
                 </Button>
               </div>
             )}
@@ -264,10 +264,10 @@ function CreateSessionContent() {
             {isSubmitting ? (
               <>
                 <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
-                Creating...
+                Création en cours...
               </>
             ) : (
-              "Create Session"
+              "Créer la session"
             )}
           </Button>
         </CardFooter>

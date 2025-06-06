@@ -16,11 +16,11 @@ import { signOut } from "next-auth/react";
 import { useState } from "react";
 
 export function MainNav() {
-  const pathname = usePathname();
-  const { data: session } = useSession();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname()
+  const { data: session } = useSession()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const isAdmin = session?.user?.isAdmin || false;
+  const isAdmin = session?.user?.isAdmin || false
 
   const routes = [
     {
@@ -30,15 +30,11 @@ export function MainNav() {
     },
     {
       href: "/quiz/join",
-      label: "Join Quiz",
+      label: "Rejoindre un Kwiz",
       active: pathname === "/quiz/join",
     },
-    ...(isAdmin
-      ? [
-
-      ]
-      : []),
-  ];
+    ...(isAdmin ? [] : []),
+  ]
 
   return (
     <div className="flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
@@ -54,7 +50,7 @@ export function MainNav() {
               href={route.href}
               className={cn(
                 "text-sm font-medium transition-colors hover:text-primary",
-                route.active ? "text-primary" : "text-muted-foreground"
+                route.active ? "text-primary" : "text-muted-foreground",
               )}
             >
               {route.label}
@@ -66,15 +62,13 @@ export function MainNav() {
       <div className="flex items-center gap-4">
         {session?.user ? (
           <>
-            <span className="hidden md:inline-block text-sm text-muted-foreground">
-              Hi, {session.user.name}
-            </span>
+            <span className="hidden md:inline-block text-sm text-muted-foreground">Salut, {session.user.name}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   {session.user.image ? (
                     <img
-                      src={session.user.image}
+                      src={session.user.image || "/placeholder.svg"}
                       alt={session.user.name || "User"}
                       className="rounded-full w-8 h-8"
                     />
@@ -86,24 +80,17 @@ export function MainNav() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
-                  Sign Out
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>Se déconnecter</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </>
         ) : (
           <Link href="/login">
-            <Button>Sign In</Button>
+            <Button>Se connecter</Button>
           </Link>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           <MenuIcon className="h-6 w-6" />
         </Button>
       </div>
@@ -117,7 +104,7 @@ export function MainNav() {
                 href={route.href}
                 className={cn(
                   "text-sm font-medium p-3 rounded-md transition-colors hover:bg-muted",
-                  route.active ? "bg-muted text-primary" : "text-foreground"
+                  route.active ? "bg-muted text-primary" : "text-foreground",
                 )}
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -127,15 +114,15 @@ export function MainNav() {
             <Button
               variant="destructive"
               onClick={() => {
-                setMobileMenuOpen(false);
-                signOut({ callbackUrl: "/" });
+                setMobileMenuOpen(false)
+                signOut({ callbackUrl: "/" })
               }}
             >
-              Sign Out
+              Se déconnecter
             </Button>
           </nav>
         </div>
       )}
     </div>
-  );
+  )
 }

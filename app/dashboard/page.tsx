@@ -63,8 +63,8 @@ export default function DashboardPage() {
       router.push(`/session/${data.sessionId}`)
     } catch (error) {
       toast({
-        title: "Error joining session",
-        description: error instanceof Error ? error.message : "Failed to join session",
+        title: "Erreur lors de la connexion à la session",
+        description: error instanceof Error ? error.message : "Échec de la connexion à la session",
         variant: "destructive",
       })
     } finally {
@@ -106,7 +106,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-2">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Chargement...</p>
         </div>
       </div>
     )
@@ -133,41 +133,41 @@ export default function DashboardPage() {
     <div className="p-10">
       <div className="flex flex-col gap-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {session?.user?.name || "User"}!</p>
+          <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
+          <p className="text-muted-foreground">Bon retour, {session?.user?.name || "Utilisateur"}!</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
+              <CardTitle className="text-sm font-medium">Sessions actives</CardTitle>
               <Sparkles className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{activeSessions.length}</div>
-              <p className="text-xs text-muted-foreground">Live quiz sessions you can join</p>
+              <p className="text-xs text-muted-foreground">Sessions de kwiz en direct que vous pouvez rejoindre</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Participations</CardTitle>
+              <CardTitle className="text-sm font-medium">Total des participations</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{participantSessions.length}</div>
-              <p className="text-xs text-muted-foreground">Sessions you've participated in</p>
+              <p className="text-xs text-muted-foreground">Sessions auxquelles vous avez participé</p>
             </CardContent>
           </Card>
           {session?.user?.isAdmin && (
             <>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Your Quizzes</CardTitle>
+                  <CardTitle className="text-sm font-medium">Vos kwiz</CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{recentQuizzes.length}</div>
-                  <p className="text-xs text-muted-foreground">Quizzes you've created</p>
+                  <p className="text-xs text-muted-foreground">kwiz que vous avez créés</p>
                 </CardContent>
               </Card>
             </>
@@ -176,14 +176,14 @@ export default function DashboardPage() {
 
         <Tabs defaultValue="active-sessions" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="active-sessions">Active Sessions</TabsTrigger>
-            <TabsTrigger value="participant-sessions">Your Participated Sessions</TabsTrigger>
-            {session?.user?.isAdmin && <TabsTrigger value="your-quizzes">Your Quizzes</TabsTrigger>}
+            <TabsTrigger value="active-sessions">Sessions actives</TabsTrigger>
+            <TabsTrigger value="participant-sessions">Vos sessions de participation</TabsTrigger>
+            {session?.user?.isAdmin && <TabsTrigger value="your-quizzes">Vos kwiz</TabsTrigger>}
           </TabsList>
           <TabsContent value="active-sessions" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {isLoading ? (
-                <p>Loading sessions...</p>
+                <p>Chargement des sessions...</p>
               ) : activeSessions.length > 0 ? (
                 activeSessions.map((_session) => (
                   <Card key={_session.id} className="overflow-hidden">
@@ -191,7 +191,7 @@ export default function DashboardPage() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <CardTitle className="text-lg">{_session.name}</CardTitle>
-                          <CardDescription className="mt-1">Quiz: {_session.quizName}</CardDescription>
+                          <CardDescription className="mt-1">kwiz : {_session.quizName}</CardDescription>
                         </div>
                         <Badge variant="outline" className="ml-2">
                           {_session.code}
@@ -218,7 +218,7 @@ export default function DashboardPage() {
                         {_session.timerDuration && (
                           <div className="flex items-center gap-2 text-sm">
                             <Timer className="h-4 w-4" />
-                            <span>{formatTimerDuration(_session.timerDuration)} per question</span>
+                            <span>{formatTimerDuration(_session.timerDuration)} par question</span>
                           </div>
                         )}
 
@@ -226,8 +226,8 @@ export default function DashboardPage() {
                           <Clock className="h-4 w-4" />
                           <span>
                             {_session.startedAt
-                              ? `Started ${format(new Date(_session.startedAt), "PPp")}`
-                              : "Not started yet"}
+                              ? `Commencé ${format(new Date(_session.startedAt), "PPp")}`
+                              : "Pas encore commencé"}
                           </span>
                         </div>
                       </div>
@@ -235,11 +235,11 @@ export default function DashboardPage() {
                     <CardFooter>
                       {_session.hostId === session?.user?.userId ? (
                         <Link href={`/admin/sessions/${_session.id}/host`} className="w-full">
-                          <Button className="w-full">Host Session</Button>
+                          <Button className="w-full">Animer la session</Button>
                         </Link>
                       ) : (
                         <Button className="w-full" onClick={() => joinSession(_session.code)}>
-                          Join Session
+                          Rejoindre la session
                         </Button>
                       )}
                     </CardFooter>
@@ -247,11 +247,11 @@ export default function DashboardPage() {
                 ))
               ) : (
                 <div className="col-span-full text-center py-10">
-                  <p className="text-muted-foreground">No active sessions found.</p>
+                  <p className="text-muted-foreground">Aucune session active trouvée.</p>
                   <p className="mt-2">
                     <Link href="/quiz/join">
                       <Button variant="outline" className="mt-2">
-                        Join a Session with Code
+                        Rejoindre une session avec un code
                       </Button>
                     </Link>
                   </p>
@@ -260,10 +260,10 @@ export default function DashboardPage() {
             </div>
           </TabsContent>
           <TabsContent value="participant-sessions" className="space-y-4">
-            <h2 className="text-xl font-semibold">Your Participated Sessions</h2>
+            <h2 className="text-xl font-semibold">Vos sessions de participation</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {isLoading ? (
-                <p>Loading sessions...</p>
+                <p>Chargement des sessions...</p>
               ) : participantSessions.length > 0 ? (
                 participantSessions.map((_session) => (
                   <Card key={_session.id} className="overflow-hidden">
@@ -271,7 +271,7 @@ export default function DashboardPage() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <CardTitle className="text-lg">{_session.name}</CardTitle>
-                          <CardDescription className="mt-1">Quiz: {_session.quizName}</CardDescription>
+                          <CardDescription className="mt-1">kwiz : {_session.quizName}</CardDescription>
                         </div>
                         <Badge variant="outline" className="ml-2">
                           {_session.code}
@@ -298,7 +298,7 @@ export default function DashboardPage() {
                         {_session.timerDuration && (
                           <div className="flex items-center gap-2 text-sm">
                             <Timer className="h-4 w-4" />
-                            <span>{formatTimerDuration(_session.timerDuration)} per question</span>
+                            <span>{formatTimerDuration(_session.timerDuration)} par question</span>
                           </div>
                         )}
 
@@ -306,8 +306,8 @@ export default function DashboardPage() {
                           <Clock className="h-4 w-4" />
                           <span>
                             {_session.startedAt
-                              ? `Started ${format(new Date(_session.startedAt), "PPp")}`
-                              : "Not started yet"}
+                              ? `Commencé ${format(new Date(_session.startedAt), "PPp")}`
+                              : "Pas encore commencé"}
                           </span>
                         </div>
                       </div>
@@ -315,11 +315,11 @@ export default function DashboardPage() {
                     <CardFooter>
                       {_session.hostId === session?.user?.userId ? (
                         <Link href={`/admin/sessions/${_session.id}/host`} className="w-full">
-                          <Button className="w-full">Show Host Menu</Button>
+                          <Button className="w-full">Afficher le menu hôte</Button>
                         </Link>
                       ) : (
                         <Button className="w-full" onClick={() => joinSession(_session.code)}>
-                          {_session.status === "COMPLETED" ? "Show Results" : "Join Session"}
+                          {_session.status === "COMPLETED" ? "Afficher les résultats" : "Rejoindre la session"}
                         </Button>
                       )}
                     </CardFooter>
@@ -327,10 +327,10 @@ export default function DashboardPage() {
                 ))
               ) : (
                 <div className="col-span-full text-center py-10">
-                  <p className="text-muted-foreground">You haven't participated in any sessions yet.</p>
+                  <p className="text-muted-foreground">Vous n'avez pas encore participé à des sessions.</p>
                   <Link href="/quiz/join">
                     <Button variant="outline" className="mt-2">
-                      Join a Session with Code
+                      Rejoindre une session avec un code
                     </Button>
                   </Link>
                 </div>
@@ -340,25 +340,25 @@ export default function DashboardPage() {
           {session?.user?.isAdmin && (
             <TabsContent value="your-quizzes" className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Your Quizzes</h2>
+                <h2 className="text-xl font-semibold">Vos kwiz</h2>
                 <Link href="/admin/quizzes/new">
-                  <Button>Create New Quiz</Button>
+                  <Button>Créer un nouveau kwiz</Button>
                 </Link>
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {isLoading ? (
-                  <p>Loading quizzes...</p>
+                  <p>Chargement des kwiz...</p>
                 ) : recentQuizzes.length > 0 ? (
                   recentQuizzes.map((quiz) => (
                     <Card key={quiz.id}>
                       <CardHeader>
                         <CardTitle>{quiz.name}</CardTitle>
-                        <CardDescription>{quiz.description || "No description"}</CardDescription>
+                        <CardDescription>{quiz.description || "Aucune description"}</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center gap-2 text-sm">
                           <Clock className="h-4 w-4" />
-                          <span>Created {format(new Date(quiz.createdAt), "PPp")}</span>
+                          <span>Créé {format(new Date(quiz.createdAt), "PPp")}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm mt-2">
                           <Sparkles className="h-4 w-4" />
@@ -368,20 +368,20 @@ export default function DashboardPage() {
                       <CardFooter className="flex gap-2">
                         <Link href={`/admin/quizzes/${quiz.id}`} className="flex-1">
                           <Button variant="outline" className="w-full">
-                            Edit
+                            Modifier
                           </Button>
                         </Link>
                         <Link href={`/admin/sessions/new?quizId=${quiz.id}`} className="flex-1">
-                          <Button className="w-full">Start Session</Button>
+                          <Button className="w-full">Démarrer une session</Button>
                         </Link>
                       </CardFooter>
                     </Card>
                   ))
                 ) : (
                   <div className="col-span-full text-center py-10">
-                    <p className="text-muted-foreground">You haven't created any quizzes yet.</p>
+                    <p className="text-muted-foreground">Vous n'avez pas encore créé de kwiz.</p>
                     <Link href="/admin/quizzes/new">
-                      <Button className="mt-2">Create Your First Quiz</Button>
+                      <Button className="mt-2">Créez votre premier kwiz</Button>
                     </Link>
                   </div>
                 )}

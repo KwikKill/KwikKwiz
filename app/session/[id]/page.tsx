@@ -111,7 +111,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-2">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-muted-foreground">Loading session...</p>
+          <p className="text-muted-foreground">Chargement de la session...</p>
         </div>
       </div>
     )
@@ -122,11 +122,11 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       <div className="p-10">
         <Card>
           <CardHeader>
-            <CardTitle>Session Not Found</CardTitle>
-            <CardDescription>This quiz session may have ended or doesn't exist.</CardDescription>
+            <CardTitle>Session introuvable</CardTitle>
+            <CardDescription>Cette session de kwiz a peut-être pris fin ou n'existe pas.</CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
+            <Button onClick={() => router.push("/dashboard")}>Retour au Dashboard</Button>
           </CardFooter>
         </Card>
       </div>
@@ -161,13 +161,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Waiting Room: {quizDetails.name || quizDetails.quiz.name}
+            Salle d'attente : {quizDetails.name || quizDetails.quiz.name}
           </CardTitle>
           <CardDescription>{quizDetails.description && quizDetails.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-muted p-4 rounded-md text-center">
-            <div className="text-sm font-medium text-muted-foreground">Session Code:</div>
+            <div className="text-sm font-medium text-muted-foreground">Code de session :</div>
             <div className="text-3xl font-bold tracking-widest">{quizDetails.code}</div>
           </div>
 
@@ -202,8 +202,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             )}
             <span>
               {isHost
-                ? "Your quiz session is ready. Participants can join using the code below."
-                : "Waiting for the host to start the quiz..."}
+                ? "Votre session de kwiz est prête. Les participants peuvent rejoindre en utilisant le code ci-dessous."
+                : "En attente de l'hôte pour démarrer le kwiz..."}
             </span>
           </div>
 
@@ -213,7 +213,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 <Users className="h-4 w-4" />
                 Participants ({participants.length})
               </h3>
-              <Badge variant="outline">{isConnected ? "Connected" : "Connecting..."}</Badge>
+              <Badge variant="outline">{isConnected ? "Connecté" : "Connexion en cours..."}</Badge>
             </div>
 
             <div className="bg-card border rounded-md p-4 max-h-40 overflow-y-auto">
@@ -240,7 +240,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground text-center">No participants yet</p>
+                <p className="text-sm text-muted-foreground text-center">Aucun participant pour le moment</p>
               )}
             </div>
           </div>
@@ -248,7 +248,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         {isHost && (
           <CardFooter>
             <Button onClick={() => router.push(`/admin/sessions/${sessionId}/host`)} className="w-full">
-              Start Hosting
+              Commencer à hoster
             </Button>
           </CardFooter>
         )}
@@ -263,7 +263,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           <CardHeader>
             <div className="flex justify-between items-center">
               <Badge variant="outline">
-                {currentQuestion.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
+                {currentQuestion.type === "MULTIPLE_CHOICE" ? "Choix multiple" : "Réponse libre"}
               </Badge>
 
               <div className="flex items-center gap-2">
@@ -277,7 +277,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                   </Badge>
                 )}
                 <Badge variant={isConnected ? "outline" : "destructive"}>
-                  {isConnected ? "Connected" : "Disconnected"}
+                  {isConnected ? "Connecté" : "Déconnecté"}
                 </Badge>
               </div>
             </div>
@@ -353,13 +353,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 className="w-full"
                 disabled={!selectedAnswer || hasSubmitted || (timeRemaining !== null && timeRemaining <= 0)}
               >
-                {hasSubmitted ? "Answer Submitted" : timeRemaining === 0 ? "Time's Up" : "Submit Answer"}
+                {hasSubmitted ? "Réponse soumise" : timeRemaining === 0 ? "Temps écoulé" : "Soumettre la réponse"}
               </Button>
             )}
 
             {isHost && (
               <Button className="w-full" disabled>
-                You cannot submit answers as a host
+                Vous ne pouvez pas soumettre de réponses en tant qu'hôte
               </Button>
             )}
           </CardFooter>
@@ -367,8 +367,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Waiting for Question</CardTitle>
-            <CardDescription>The host will select a question soon...</CardDescription>
+            <CardTitle>En attente d'une question</CardTitle>
+            <CardDescription>L'hôte va bientôt sélectionner une question...</CardDescription>
           </CardHeader>
         </Card>
       )}
@@ -376,12 +376,12 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       <div className="gap-4 flex flex-col md:flex-row w-full">
         <Card className="md:col-span-2 flex-1">
           <CardHeader className="pb-2">
-            <h3 className="text-sm font-medium">Current Status</h3>
+            <h3 className="text-sm font-medium">Statut actuel</h3>
           </CardHeader>
           <CardContent>
             <div className="text-sm space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Session:</span>
+                <span className="text-muted-foreground">Session :</span>
                 <span>{quizDetails.name || quizDetails.quiz.name}</span>
               </div>
               <div className="flex justify-between">
@@ -389,13 +389,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 <span>{participants.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Status:</span>
+                <span className="text-muted-foreground">Statut :</span>
                 <Badge variant="secondary">{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>
               </div>
               {timerDuration && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Timer:</span>
-                  <span>{timerDuration}s per question</span>
+                  <span className="text-muted-foreground">Minuteur :</span>
+                  <span>{timerDuration}s par question</span>
                 </div>
               )}
             </div>
@@ -404,7 +404,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
         <Card>
           <CardHeader className="pb-2">
-            <h3 className="text-sm font-medium">Connected Users</h3>
+            <h3 className="text-sm font-medium">Utilisateurs connectés</h3>
           </CardHeader>
           <CardContent>
             {participants.length > 0 ? (
@@ -430,7 +430,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground text-center">No participants yet</p>
+              <p className="text-sm text-muted-foreground text-center">Aucun participant pour le moment</p>
             )}
           </CardContent>
         </Card>
@@ -443,29 +443,27 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <Badge variant="secondary">Correction Phase</Badge>
-            <Badge variant={isConnected ? "outline" : "destructive"}>
-              {isConnected ? "Connected" : "Disconnected"}
-            </Badge>
+            <Badge variant="secondary">Phase de correction</Badge>
+            <Badge variant={isConnected ? "outline" : "destructive"}>{isConnected ? "Connecté" : "Déconnecté"}</Badge>
           </div>
-          <CardTitle className="mt-2">{isHost ? "Review Questions and Answers" : "Correction in Progress"}</CardTitle>
+          <CardTitle className="mt-2">{isHost ? "Vérifiez les questions et réponses" : "Correction en cours"}</CardTitle>
           <CardDescription>
             {isHost
-              ? "Select a question to review, then show and grade each answer"
-              : "The host is reviewing questions and grading answers"}
+              ? "Sélectionnez une question à vérifier, puis affichez et notez chaque réponse"
+              : "L'hôte vérifie et note les réponses"}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
           {isHost ? (
             <>
-              <div>You can only correct answers on the host menu</div>
+              <div>Vous ne pouvez corriger les réponses que depuis le menu hôte</div>
               <Button
                 onClick={() => router.push(`/admin/sessions/${sessionId}/host`)}
                 className="w-full"
                 disabled={!correctionQuestion && correctionAnswers.length === 0}
               >
-                Go to host menu
+                Aller au menu hôte
               </Button>
             </>
           ) : (
@@ -477,7 +475,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                     <p className="text-lg">{correctionQuestion.text}</p>
                     {/* TODO: Add question image */}
                     <p className="text-sm text-muted-foreground">
-                      Réponse attendu : {correctionQuestion.correctAnswer}
+                      Réponse attendue : {correctionQuestion.correctAnswer}
                     </p>
                   </div>
                   {currentShownAnswer ? (
@@ -513,13 +511,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                       </CardContent>
                     </Card>
                   ) : (
-                    <p className="text-muted-foreground">Waiting for the host to show an answer...</p>
+                    <p className="text-muted-foreground">En attente que l'hôte affiche une réponse...</p>
                   )}
                 </div>
               ) : (
                 <div>
                   <div className="h-10 w-10 mx-auto mb-4 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                  <p className="text-muted-foreground">The host is selecting a question to review...</p>
+                  <p className="text-muted-foreground">Attente du choix de question par l'hôte...</p>
                 </div>
               )}
             </div>
@@ -547,9 +545,9 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
-            Quiz Results: {quizDetails.name || quizDetails.quiz.name}
+            Résultats du kwiz : {quizDetails.name || quizDetails.quiz.name}
           </CardTitle>
-          <CardDescription>The quiz session has ended. Here are the final results.</CardDescription>
+          <CardDescription>La session de kwiz est terminée. Voici les résultats finaux.</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -635,8 +633,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 <table className="w-full">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="px-4 py-2 text-left text-sm font-medium">Rank</th>
-                      <th className="px-4 py-2 text-left text-sm font-medium">Player</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Rang</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Joueur</th>
                       <th className="px-4 py-2 text-right text-sm font-medium">Score</th>
                     </tr>
                   </thead>
@@ -655,14 +653,14 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           ) : (
             <div className="text-center py-8">
               <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-              <p className="mt-2 text-muted-foreground">No results available</p>
+              <p className="mt-2 text-muted-foreground">Aucun résultat disponible</p>
             </div>
           )}
         </CardContent>
 
         <CardFooter>
           <Button onClick={() => router.push("/dashboard")} className="w-full">
-            Back to Dashboard
+            Retour au Dashboard
           </Button>
         </CardFooter>
       </Card>
@@ -672,21 +670,21 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
-            Session Recap
+            Récapitulatif de la session
           </CardTitle>
-          <CardDescription>Here are the questions and answers from this session.</CardDescription>
+          <CardDescription>Voici les questions et réponses de cette session.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {questions.length > 0 ? (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Responses</h3>
+              <h3 className="text-lg font-medium">Réponses</h3>
 
               {questions.map((question) => (
                 <Card key={question.id} className="overflow-hidden">
                   <CardHeader className="p-4 pb-2">
                     <div className="flex justify-between items-start">
                       <Badge variant="outline">
-                        {question.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
+                        {question.type === "MULTIPLE_CHOICE" ? "Choix multiple" : "Réponse libre"}
                       </Badge>
                     </div>
                     <CardTitle className="text-base mt-2">{question.text}</CardTitle>
@@ -743,7 +741,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           ) : (
             <div className="text-center py-10">
               <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-              <p className="mt-2 text-muted-foreground">No questions answered in this session</p>
+              <p className="mt-2 text-muted-foreground">Aucune question répondue dans cette session</p>
             </div>
           )}
         </CardContent>

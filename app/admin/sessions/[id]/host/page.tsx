@@ -107,8 +107,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
           // Check if user is the host
           if (data.hostId !== authSession.user?.userId) {
             toast({
-              title: "Access Denied",
-              description: "You are not the host of this session",
+              title: "Accès refusé",
+              description: "Vous n'êtes pas l'hôte de cette session",
               variant: "destructive",
             })
             router.push(`/session/${sessionId}`)
@@ -119,8 +119,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
         .catch((error) => {
           console.error("Error fetching session:", error)
           toast({
-            title: "Error",
-            description: "Failed to load session details",
+            title: "Erreur",
+            description: "Échec du chargement des détails de la session",
             variant: "destructive",
           })
           setIsLoading(false)
@@ -133,8 +133,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
 
     navigator.clipboard.writeText(quizSession.code)
     toast({
-      title: "Session code copied",
-      description: "Share this code with your participants",
+      title: "Code de session copié",
+      description: "Partagez ce code avec vos participants",
     })
   }
 
@@ -148,14 +148,14 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     if (isNaN(duration) || duration < 0) {
       updateTimerDuration(null)
       toast({
-        title: "Timer disabled",
-        description: "Questions will have no time limit",
+        title: "Minuteur désactivé",
+        description: "Les questions n'auront pas de limite de temps",
       })
     } else {
       updateTimerDuration(duration)
       toast({
-        title: "Timer updated",
-        description: `Questions will have ${duration} seconds`,
+        title: "Minuteur mis à jour",
+        description: `Les questions auront ${duration} secondes`,
       })
     }
   }
@@ -171,7 +171,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-2">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-muted-foreground">Loading session...</p>
+          <p className="text-muted-foreground">Chargement de la session...</p>
         </div>
       </div>
     )
@@ -182,11 +182,11 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
       <div className="p-10">
         <Card>
           <CardHeader>
-            <CardTitle>Session Not Found</CardTitle>
-            <CardDescription>This quiz session may have ended or doesn't exist.</CardDescription>
+            <CardTitle>Session introuvable</CardTitle>
+            <CardDescription>Cette session de kwiz a peut-être pris fin ou n'existe pas.</CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
+            <Button onClick={() => router.push("/dashboard")}>Retour au tableau de bord</Button>
           </CardFooter>
         </Card>
       </div>
@@ -200,16 +200,14 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold">{quizSession.name}</h1>
-              <p className="text-muted-foreground">Host Interface</p>
+              <p className="text-muted-foreground">Interface hôte</p>
               {quizSession.description && (
                 <p className="text-sm text-muted-foreground mt-1">{quizSession.description}</p>
               )}
             </div>
 
             <div className="flex items-center gap-2">
-              <Badge variant={isConnected ? "outline" : "destructive"}>
-                {isConnected ? "Connected" : "Disconnected"}
-              </Badge>
+              <Badge variant={isConnected ? "outline" : "destructive"}>{isConnected ? "Connecté" : "Déconnecté"}</Badge>
               <Badge variant="secondary">{status.charAt(0).toUpperCase() + status.slice(1)}</Badge>
               {isTimerActive && timeRemaining !== null && (
                 <Badge variant={timeRemaining <= 10 ? "destructive" : "default"} className="flex items-center gap-1">
@@ -228,8 +226,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
             <TabsList className="grid grid-cols-4 mb-4">
               <TabsTrigger value="questions">Questions</TabsTrigger>
               <TabsTrigger value="participants">Participants</TabsTrigger>
-              <TabsTrigger value="responses">Responses</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="responses">Réponses</TabsTrigger>
+              <TabsTrigger value="settings">Paramètres</TabsTrigger>
             </TabsList>
 
             {/* Status Summary */}
@@ -238,7 +236,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                 <Card className="p-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-primary">{quizSession.quiz.questions.length}</div>
-                    <div className="text-xs text-muted-foreground">Total Questions</div>
+                    <div className="text-xs text-muted-foreground">Total des questions</div>
                   </div>
                 </Card>
 
@@ -248,7 +246,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       <div className="text-2xl font-bold text-blue-500">
                         {new Set(answers.map((a) => a.questionId)).size}
                       </div>
-                      <div className="text-xs text-muted-foreground">Questions Asked</div>
+                      <div className="text-xs text-muted-foreground">Questions posées</div>
                     </div>
                   </Card>
                 )}
@@ -261,7 +259,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       >
                         {timeRemaining !== null ? formatTime(timeRemaining) : formatTime(timerDuration)}
                       </div>
-                      <div className="text-xs text-muted-foreground">Time Remaining</div>
+                      <div className="text-xs text-muted-foreground">Temps restant</div>
                     </div>
                   </Card>
                 )}
@@ -278,7 +276,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             }).length
                           }
                         </div>
-                        <div className="text-xs text-muted-foreground">Need Correction</div>
+                        <div className="text-xs text-muted-foreground">Nécessite une correction</div>
                       </div>
                     </Card>
 
@@ -295,7 +293,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             }).length
                           }
                         </div>
-                        <div className="text-xs text-muted-foreground">Corrected</div>
+                        <div className="text-xs text-muted-foreground">Corrigé</div>
                       </div>
                     </Card>
                   </>
@@ -306,11 +304,11 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
             <TabsContent value="settings" className="border rounded-md p-4">
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-medium mb-4">Session Settings</h2>
+                  <h2 className="text-lg font-medium mb-4">Paramètres de la session</h2>
 
                   <div className="space-y-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="timer-duration">Timer Duration (seconds)</Label>
+                      <Label htmlFor="timer-duration">Durée du minuteur (secondes)</Label>
                       <div className="flex gap-2">
                         <Input
                           id="timer-duration"
@@ -323,39 +321,39 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           className="flex-1"
                         />
                         <Button onClick={handleUpdateTimer} variant="outline">
-                          Update
+                          Mettre à jour
                         </Button>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Current: {timerDuration ? `${timerDuration} seconds` : "No timer"}
+                        Actuel : {timerDuration ? `${timerDuration} secondes` : "Pas de minuteur"}
                       </p>
                     </div>
 
                     <div className="bg-muted p-4 rounded-md">
-                      <h3 className="font-medium mb-2">Session Information</h3>
+                      <h3 className="font-medium mb-2">Informations de la session</h3>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Session Name:</span>
+                          <span className="text-muted-foreground">Nom de la session :</span>
                           <span>{quizSession.name}</span>
                         </div>
                         {quizSession.description && (
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Description:</span>
+                            <span className="text-muted-foreground">Description :</span>
                             <span className="text-right max-w-xs">{quizSession.description}</span>
                           </div>
                         )}
                         {quizSession.sessionDate && (
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Scheduled:</span>
+                            <span className="text-muted-foreground">Planifié :</span>
                             <span>{new Date(quizSession.sessionDate).toLocaleString()}</span>
                           </div>
                         )}
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Quiz:</span>
+                          <span className="text-muted-foreground">kwiz :</span>
                           <span>{quizSession.quiz.name}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Questions:</span>
+                          <span className="text-muted-foreground">Questions :</span>
                           <span>{quizSession.quiz.questions.length}</span>
                         </div>
                       </div>
@@ -367,7 +365,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
 
             <TabsContent value="questions" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium">Quiz Questions</h2>
+                <h2 className="text-lg font-medium">Questions du kwiz</h2>
                 <Badge>{quizSession.quiz.questions.length} Questions</Badge>
               </div>
 
@@ -396,12 +394,12 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                               {/* Status indicators */}
                               {status === "active" && wasAsked && (
                                 <Badge variant="default" className="bg-blue-500">
-                                  Asked
+                                  Posée
                                 </Badge>
                               )}
                               {status === "correction" && wasAsked && (
                                 <Badge variant="default" className={wasCorreted ? "bg-green-500" : "bg-yellow-500"}>
-                                  {wasCorreted ? "Corrected" : "Needs Correction"}
+                                  {wasCorreted ? "Corrigé" : "Nécessite une correction"}
                                 </Badge>
                               )}
                             </div>
@@ -443,7 +441,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                               className="w-full"
                               disabled={currentQuestion?.id === question.id}
                             >
-                              {currentQuestion?.id === question.id ? "Current Question" : "Select Question"}
+                              {currentQuestion?.id === question.id ? "Question actuelle" : "Sélectionner la question"}
                             </Button>
                           )}
                         </CardFooter>
@@ -454,13 +452,13 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                   {quizSession.quiz.questions.length === 0 && (
                     <div className="text-center py-10">
                       <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-                      <p className="mt-2 text-muted-foreground">No questions in this quiz</p>
+                      <p className="mt-2 text-muted-foreground">Aucune question dans ce kwiz</p>
                       <Button
                         variant="link"
                         onClick={() => router.push(`/admin/quizzes/${quizSession.quizId}`)}
                         className="mt-2"
                       >
-                        Add questions
+                        Ajouter des questions
                       </Button>
                     </div>
                   )}
@@ -499,7 +497,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         {currentQuestion && status === "active" ? (
                           <div className="flex items-center gap-2">
                             {participant.id === quizSession.hostId ? (
-                              <Badge variant="destructive">Host</Badge>
+                              <Badge variant="destructive">Hôte</Badge>
                             ) : (
                               (() => {
                                 const participantAnswer = answers.find(
@@ -510,21 +508,21 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                   return (
                                     <Badge variant="outline">
                                       <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
-                                      Answered
+                                      Répondu
                                     </Badge>
                                   )
                                 } else if (timeRemaining === 0 || !isTimerActive) {
                                   return (
                                     <Badge variant="destructive">
                                       <Clock className="h-3 w-3 mr-1" />
-                                      Timeout
+                                      Temps écoulé
                                     </Badge>
                                   )
                                 } else {
                                   return (
                                     <Badge variant="outline">
                                       <Clock className="h-3 w-3 mr-1 text-yellow-500" />
-                                      Waiting
+                                      En attente
                                     </Badge>
                                   )
                                 }
@@ -532,7 +530,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             )}
                           </div>
                         ) : (
-                          participant.id === quizSession.hostId && <Badge variant="destructive">Host</Badge>
+                          participant.id === quizSession.hostId && <Badge variant="destructive">Hôte</Badge>
                         )}
                       </div>
                     ))}
@@ -548,8 +546,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           return (
                             <>
                               <p className="text-center text-muted-foreground">
-                                {answeredCount} answered, {timeoutCount > 0 ? `${timeoutCount} timeout, ` : ""}
-                                {completedCount} of {totalParticipants} completed
+                                {answeredCount} ont répondu, {timeoutCount > 0 ? `${timeoutCount} temps écoulé, ` : ""}
+                                {completedCount} sur {totalParticipants} terminé
                               </p>
                               <Progress
                                 className="mt-2 border-primary"
@@ -560,7 +558,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                   <span
                                     className={`text-sm font-medium ${timeRemaining <= 10 ? "text-red-500" : "text-muted-foreground"}`}
                                   >
-                                    {isTimerActive ? `${formatTime(timeRemaining)} remaining` : "Time expired"}
+                                    {isTimerActive ? `${formatTime(timeRemaining)} restant` : "Temps expiré"}
                                   </span>
                                 </div>
                               )}
@@ -573,13 +571,13 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                 ) : (
                   <div className="text-center py-10">
                     <Users className="h-8 w-8 mx-auto text-muted-foreground" />
-                    <p className="mt-2 text-muted-foreground">No participants have joined yet</p>
+                    <p className="mt-2 text-muted-foreground">Aucun participant n'a encore rejoint</p>
                     <div className="mt-4 p-4 bg-muted rounded-md max-w-md mx-auto">
-                      <p className="text-sm font-medium">Share this code with participants:</p>
+                      <p className="text-sm font-medium">Partagez ce code avec les participants :</p>
                       <p className="mt-1 text-xl font-mono tracking-widest text-center">{quizSession.code}</p>
                       <Button variant="outline" size="sm" className="mt-2 w-full" onClick={handleCopySessionCode}>
                         <Share className="h-4 w-4 mr-1" />
-                        Copy Code
+                        Copier le code
                       </Button>
                     </div>
                   </div>
@@ -590,14 +588,14 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
             <TabsContent value="responses" className="border rounded-md p-4">
               <div className="flex justify-between items-center mb-4 w-full">
                 {status === "completed" ? (
-                  <h2 className="text-lg font-medium">Final Results</h2>
+                  <h2 className="text-lg font-medium">Résultats finaux</h2>
                 ) : (
-                  <h2 className="text-lg font-medium">Responses</h2>
+                  <h2 className="text-lg font-medium">Réponses</h2>
                 )}
                 <div className="flex gap-2">
                   {status === "active" && (
                     <Button onClick={startCorrection} size="sm">
-                      Start Correction
+                      Commencer la correction
                     </Button>
                   )}
                 </div>
@@ -618,8 +616,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         <table className="w-full">
                           <thead className="bg-background">
                             <tr>
-                              <th className="px-4 py-2 text-left text-sm font-medium">Rank</th>
-                              <th className="px-4 py-2 text-left text-sm font-medium">Player</th>
+                              <th className="px-4 py-2 text-left text-sm font-medium">Rang</th>
+                              <th className="px-4 py-2 text-left text-sm font-medium">Joueur</th>
                               <th className="px-4 py-2 text-right text-sm font-medium">Score</th>
                             </tr>
                           </thead>
@@ -716,9 +714,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                     {!correctionQuestion ? (
                       <div className="space-y-4">
                         <div className="bg-muted p-4 rounded-md">
-                          <h3 className="font-medium">Correction Mode - Select a Question</h3>
+                          <h3 className="font-medium">Mode correction - Sélectionnez une question</h3>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Choose a question to review and grade answers
+                            Choisissez une question à réviser et notez les réponses
                           </p>
                         </div>
 
@@ -745,7 +743,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                           variant="default"
                                           className={wasCorreted ? "bg-green-500" : "bg-yellow-500"}
                                         >
-                                          {wasCorreted ? "Corrected" : "Needs Correction"}
+                                          {wasCorreted ? "Corrigé" : "Nécessite une correction"}
                                         </Badge>
                                       </div>
                                       {question.type === "MULTIPLE_CHOICE" && (
@@ -756,7 +754,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                       )}
                                     </div>
                                     <Button variant="outline" size="sm">
-                                      Review Answers
+                                      Réviser les réponses
                                     </Button>
                                   </div>
                                 </CardContent>
@@ -770,9 +768,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         <div className="bg-muted p-4 rounded-md">
                           <div className="flex justify-between items-center">
                             <div>
-                              <h3 className="font-medium">Reviewing: {correctionQuestion.text}</h3>
+                              <h3 className="font-medium">Révision : {correctionQuestion.text}</h3>
                               <p className="text-sm text-muted-foreground">
-                                {correctionAnswers.length} answers to review
+                                {correctionAnswers.length} réponses à réviser
                               </p>
                             </div>
                             <Button
@@ -783,7 +781,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                 selectCorrectionQuestion(null)
                               }}
                             >
-                              Back to Questions
+                              Retour aux questions
                             </Button>
                           </div>
                         </div>
@@ -796,7 +794,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                 <div className="flex justify-between items-center">
                                   <div className="flex items-center gap-2">
                                     <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                                    <h4 className="font-medium">Expected Answer</h4>
+                                    <h4 className="font-medium">Réponse attendue</h4>
                                   </div>
                                   <Badge variant="outline">
                                     {correctionQuestion.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
@@ -826,7 +824,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                         {currentShownAnswer.userName?.charAt(0).toUpperCase() || "?"}
                                       </div>
                                     )}
-                                    <h4 className="font-medium">{currentShownAnswer.userName}'s Answer</h4>
+                                    <h4 className="font-medium">{currentShownAnswer.userName} - Réponse</h4>
                                   </div>
                                   {currentShownAnswer.isCorrect !== null ? (
                                     <Badge
@@ -838,7 +836,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                         : "Incorrect (0 pts)"}
                                     </Badge>
                                   ) : (
-                                    <Badge variant="outline">Pending Review</Badge>
+                                    <Badge variant="outline">Non révisé</Badge>
                                   )}
                                 </div>
                               </CardHeader>
@@ -851,8 +849,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                   <div className="flex gap-2">
                                     <Button
                                       variant="outline"
-                                      className={`flex-1 border-red-200 hover:bg-red-800 ${currentShownAnswer.isCorrect === false ? "bg-red-500" : ""
-                                        }`}
+                                      className={`flex-1 border-red-200 hover:bg-red-800 ${
+                                        currentShownAnswer.isCorrect === false ? "bg-red-500" : ""
+                                      }`}
                                       onClick={() => gradeCorrectionAnswer(currentShownAnswer, false, 0)}
                                     >
                                       <XCircle
@@ -862,8 +861,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                     </Button>
                                     <Button
                                       variant="outline"
-                                      className={`flex-1 border-green-200 hover:bg-green-800 ${currentShownAnswer.isCorrect === true ? "bg-green-500" : ""
-                                        }`}
+                                      className={`flex-1 border-green-200 hover:bg-green-800 ${
+                                        currentShownAnswer.isCorrect === true ? "bg-green-500" : ""
+                                      }`}
                                       onClick={() => gradeCorrectionAnswer(currentShownAnswer, true, 1)}
                                     >
                                       <CheckCircle
@@ -891,7 +891,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                     }
                                   }}
                                 >
-                                  Previous Answer
+                                  Réponse précédente
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -908,14 +908,14 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                     }
                                   }}
                                 >
-                                  Next Answer
+                                  Réponse suivante
                                 </Button>
                               </div>
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            <h4 className="font-medium">Select an answer to show and grade:</h4>
+                            <h4 className="font-medium">Sélectionnez une réponse à afficher et noter :</h4>
                             {correctionAnswers.map((answer) => (
                               <Card
                                 key={answer.id}
@@ -940,10 +940,10 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                           {answer.isCorrect ? `✓ ${answer.points} pts` : "✗ 0 pts"}
                                         </Badge>
                                       ) : (
-                                        <Badge variant="outline">Not Reviewed</Badge>
+                                        <Badge variant="outline">Non révisé</Badge>
                                       )}
                                       <Button variant="outline" size="sm">
-                                        Show & Grade
+                                        Afficher et noter
                                       </Button>
                                     </div>
                                   </div>
@@ -954,7 +954,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             {correctionAnswers.length === 0 && (
                               <div className="text-center py-8">
                                 <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-                                <p className="mt-2 text-muted-foreground">No answers found for this question</p>
+                                <p className="mt-2 text-muted-foreground">Aucune réponse trouvée pour cette question</p>
                               </div>
                             )}
                           </div>
@@ -970,7 +970,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         <div className="mt-2 flex items-center gap-2">
                           <Timer className="h-4 w-4" />
                           <span className={`text-sm font-medium ${timeRemaining <= 10 ? "text-red-500" : ""}`}>
-                            {isTimerActive ? `${formatTime(timeRemaining)} remaining` : "Time expired"}
+                            {isTimerActive ? `${formatTime(timeRemaining)} restant` : "Temps expiré"}
                           </span>
                         </div>
                       )}
@@ -1002,7 +1002,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                   </div>
                                   <Badge variant="outline">
                                     <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
-                                    Submitted
+                                    Soumis
                                   </Badge>
                                 </div>
                               </CardHeader>
@@ -1041,12 +1041,12 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                   </div>
                                   <Badge variant="destructive">
                                     <Clock className="h-3 w-3 mr-1" />
-                                    Timeout
+                                    Temps écoulé
                                   </Badge>
                                 </div>
                               </CardHeader>
                               <CardContent className="py-2 px-4">
-                                <p className="text-sm text-muted-foreground italic">No answer submitted</p>
+                                <p className="text-sm text-muted-foreground italic">Aucune réponse soumise</p>
                               </CardContent>
                             </Card>
                           ))}
@@ -1055,7 +1055,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         (timeRemaining === null || timeRemaining > 0) && (
                           <div className="text-center py-8">
                             <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-                            <p className="mt-2 text-muted-foreground">No answers submitted yet</p>
+                            <p className="mt-2 text-muted-foreground">Aucune réponse soumise pour le moment</p>
                           </div>
                         )}
                     </div>
@@ -1063,9 +1063,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                 ) : (
                   <div className="text-center py-10">
                     <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
-                    <p className="mt-2 text-muted-foreground">No question selected</p>
+                    <p className="mt-2 text-muted-foreground">Aucune question sélectionnée</p>
                     <Button variant="link" onClick={() => setCurrentTab("questions")} className="mt-2">
-                      Select a question
+                      Sélectionnez une question
                     </Button>
                   </div>
                 )}
@@ -1077,12 +1077,12 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Session Info</CardTitle>
+              <CardTitle>Infos de la session</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Session Code</label>
+                  <label className="text-sm font-medium">Code de session</label>
                   <div className="flex">
                     <div className="bg-muted px-3 py-2 rounded-l-md border-y border-l font-mono tracking-wider flex-1 text-center">
                       {quizSession.code}
@@ -1094,11 +1094,11 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
+                  <label className="text-sm font-medium">Statut</label>
                   <div className="bg-muted p-2 rounded-md flex justify-between items-center">
                     <span>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
                     <Badge variant={isConnected ? "outline" : "destructive"} className="ml-2">
-                      {isConnected ? "Connected" : "Disconnected"}
+                      {isConnected ? "Connecté" : "Déconnecté"}
                     </Badge>
                   </div>
                 </div>
@@ -1109,7 +1109,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                     <div className="flex items-center justify-between">
                       <span>{participants.length}</span>
                       <Button variant="ghost" size="sm" onClick={() => setCurrentTab("participants")}>
-                        View
+                        Voir
                       </Button>
                     </div>
                   </div>
@@ -1117,7 +1117,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
 
                 {currentQuestion && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Current Question</label>
+                    <label className="text-sm font-medium">Question actuelle</label>
                     <div className="bg-muted p-2 rounded-md">
                       <p className="line-clamp-2 text-sm">{currentQuestion.text}</p>
                       <div className="flex items-center justify-between mt-2">
@@ -1125,7 +1125,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           {currentQuestion.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
                         </Badge>
                         <Button variant="ghost" size="sm" onClick={() => setCurrentTab("responses")}>
-                          View Responses
+                          Voir les réponses
                         </Button>
                       </div>
                     </div>
@@ -1136,18 +1136,18 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
             <CardFooter className="flex flex-col gap-2">
               {status === "active" && (
                 <Button onClick={startCorrection} className="w-full">
-                  Start Correction Round
+                  Commencer la phase de correction
                 </Button>
               )}
 
               {status === "correction" && (
                 <Button onClick={endSession} className="w-full" variant="destructive">
-                  End Session & Show Results
+                  Terminer la session et afficher les résultats
                 </Button>
               )}
 
               <Button variant="outline" className="w-full" onClick={() => router.push(`/session/${sessionId}`)}>
-                View Participant View
+                Voir la vue participant
               </Button>
             </CardFooter>
           </Card>
@@ -1157,7 +1157,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-primary" />
-                  Final Results
+                  Résultats finaux
                 </CardTitle>
               </CardHeader>
               <CardContent>
