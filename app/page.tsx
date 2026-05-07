@@ -10,24 +10,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-4 py-4 md:px-6 md:py-4">
-        <div className="flex items-center gap-2 font-bold text-2xl">
-          <img src="/icon.png" alt="Logo" className="h-8 w-8" />
-          <span>KwikKwiz</span>
-        </div>
-        <div className="flex items-center gap-4">
-          {session ? (
-            <Link href="/dashboard">
-              <Button>Dashboard</Button>
-            </Link>
-          ) : (
-            <Link href="/login">
-              <Button>Se connecter</Button>
-            </Link>
-          )}
-        </div>
-      </header>
-
       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 flex items-center justify-center">
           <div className="flex flex-col items-center justify-center gap-4 text-center">

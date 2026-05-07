@@ -38,17 +38,17 @@ model Session {
 }
 
 model User {
-  id             String           @id @default(cuid())
+  id             String          @id @default(cuid())
   name           String?
-  email          String?          @unique
+  email          String?         @unique
   emailVerified  DateTime?
   image          String?
-  discordId      String?          @unique
-  isAdmin        Boolean          @default(false)
+  discordId      String?         @unique
+  isAdmin        Boolean         @default(false)
   accounts       Account[]
   sessions       Session[]
   createdQuizzes Quiz[]
-  quizSessions   QuizSession[]    @relation("HostedSessions")
+  quizSessions   QuizSession[]   @relation("HostedSessions")
   participation  Participation[]
   answers        PlayerAnswer[]
 }
@@ -83,27 +83,28 @@ model Question {
 enum QuestionType {
   MULTIPLE_CHOICE
   FREE_ANSWER
+  DRAG_TO_ORDER
 }
 
 model QuizSession {
-  id            String          @id @default(cuid())
-  code          String          @unique
-  quizId        String
-  quiz          Quiz            @relation(fields: [quizId], references: [id])
-  hostId        String
-  host          User            @relation("HostedSessions", fields: [hostId], references: [id])
-  status        SessionStatus   @default(WAITING)
+  id                String          @id @default(cuid())
+  code              String          @unique
+  quizId            String
+  quiz              Quiz            @relation(fields: [quizId], references: [id])
+  hostId            String
+  host              User            @relation("HostedSessions", fields: [hostId], references: [id])
+  status            SessionStatus   @default(WAITING)
   currentQuestionId String?
-  startedAt     DateTime?
-  endedAt       DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  participants  Participation[]
-  answers       PlayerAnswer[]
-  name          String?
-  description   String?
-  sessionDate   DateTime?
-  timerDuration Int?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  participants      Participation[]
+  answers           PlayerAnswer[]
+  name              String?
+  description       String?
+  sessionDate       DateTime?
+  timerDuration     Int?
 }
 
 enum SessionStatus {
@@ -114,32 +115,32 @@ enum SessionStatus {
 }
 
 model Participation {
-  id        String      @id @default(cuid())
+  id        String         @id @default(cuid())
   sessionId String
-  session   QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session   QuizSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  joinedAt  DateTime    @default(now())
-  score     Int         @default(0)
+  user      User           @relation(fields: [userId], references: [id])
+  joinedAt  DateTime       @default(now())
+  score     Int            @default(0)
   answers   PlayerAnswer[]
 
   @@unique([sessionId, userId])
 }
 
 model PlayerAnswer {
-  id            String      @id @default(cuid())
-  sessionId     String
-  session       QuizSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  questionId    String
-  question      Question    @relation(fields: [questionId], references: [id])
-  userId        String
-  user          User        @relation(fields: [userId], references: [id])
+  id              String        @id @default(cuid())
+  sessionId       String
+  session         QuizSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId      String
+  question        Question      @relation(fields: [questionId], references: [id])
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
   participationId String
-  participation Participation @relation(fields: [participationId], references: [id], onDelete: Cascade)
-  answer        String
-  isCorrect     Boolean?
-  points        Int         @default(0)
-  submittedAt   DateTime    @default(now())
+  participation   Participation @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  answer          String
+  isCorrect       Boolean?
+  points          Int           @default(0)
+  submittedAt     DateTime      @default(now())
 
   @@unique([sessionId, questionId, userId])
 }

@@ -15,7 +15,7 @@ type Question = {
   id: string
   text: string
   imageUrl?: string
-  type: "MULTIPLE_CHOICE" | "FREE_ANSWER"
+  type: "MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER"
   options?: string[]
   correctAnswer: string
   response?: Record<

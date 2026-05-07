@@ -15,6 +15,7 @@ import { Sparkles, Users, Trophy, AlertCircle, Timer, Clock } from "lucide-react
 import Confetti from "react-confetti"
 import { EmojiSelector } from "@/components/emoji-selector"
 import { EmojiRain } from "@/components/emoji-rain"
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd"
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const [sessionId, setSessionId] = useState<string>("")
@@ -68,6 +69,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   } = useQuizSession(sessionId, isHost)
 
   const [selectedAnswer, setSelectedAnswer] = useState("")
+  const [dragToOrderItems, setDragToOrderItems] = useState<string[]>([])
 
   useEffect(() => {
     if (authStatus === "authenticated" && authSession?.user && sessionId) {
@@ -91,6 +93,12 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   useEffect(() => {
     // Reset selectedAnswer when the currentQuestion changes
     setSelectedAnswer("")
+    if (currentQuestion?.type === "DRAG_TO_ORDER") {
+      // Initialize dragToOrderItems with the options in their original order
+      setDragToOrderItems(currentQuestion.options || [])
+    } else {
+      setDragToOrderItems([])
+    }
   }, [currentQuestion])
 
   useEffect(() => {
@@ -105,6 +113,24 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       setShowConfetti(true)
     }
   }, [status])
+
+  const handleDragToOrderEnd = (result: DropResult) => {
+    const { source, destination } = result
+
+    if (!destination) {
+      return
+    }
+
+    if (source.index === destination.index) {
+      return
+    }
+
+    const newItems = Array.from(dragToOrderItems)
+    const [movedItem] = newItems.splice(source.index, 1)
+    newItems.splice(destination.index, 0, movedItem)
+
+    setDragToOrderItems(newItems)
+  }
 
   if (authStatus === "loading" || isLoading) {
     return (
@@ -172,7 +198,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           </div>
 
           {/* Session Info */}
-          <div className="flex flex-col justify-center items-start gap-2 items-center">
+          <div className="flex flex-col justify-center items-center gap-2">
             {quizDetails.sessionDate && (
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4" />
@@ -263,7 +289,11 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           <CardHeader>
             <div className="flex justify-between items-center">
               <Badge variant="outline">
-                {currentQuestion.type === "MULTIPLE_CHOICE" ? "Choix multiple" : "Réponse libre"}
+                {currentQuestion.type === "MULTIPLE_CHOICE"
+                  ? "Choix multiple"
+                  : currentQuestion.type === "DRAG_TO_ORDER"
+                    ? "Ordonner les éléments"
+                    : "Réponse libre"}
               </Badge>
 
               <div className="flex items-center gap-2">
@@ -316,6 +346,45 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                       ))}
                     </div>
                   </RadioGroup>
+                ) : currentQuestion.type === "DRAG_TO_ORDER" ? (
+                  <DragDropContext onDragEnd={handleDragToOrderEnd}>
+                    <Droppable droppableId="order-items">
+                      {(provided, snapshot) => (
+                        <div
+                          {...provided.droppableProps}
+                          ref={provided.innerRef}
+                          className={`space-y-2 p-4 rounded-md transition-colors ${
+                            snapshot.isDraggingOver ? "bg-primary/10" : "bg-muted/30"
+                          }`}
+                        >
+                          {dragToOrderItems.map((item, index) => (
+                            <Draggable key={item} draggableId={item} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`p-4 bg-card border-2 rounded-md cursor-move transition-all ${
+                                    snapshot.isDragging
+                                      ? "shadow-lg border-primary bg-primary/5"
+                                      : "border-border"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
+                                      {index + 1}
+                                    </div>
+                                    <span className="font-medium">{item}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
                 ) : (
                   <Textarea
                     placeholder="Type your answer here..."
@@ -349,9 +418,21 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           <CardFooter>
             {!isHost && (
               <Button
-                onClick={() => submitAnswer(currentQuestion.id, selectedAnswer)}
+                onClick={() => {
+                  const answerToSubmit =
+                    currentQuestion.type === "DRAG_TO_ORDER"
+                      ? dragToOrderItems.join(",")
+                      : selectedAnswer
+                  submitAnswer(currentQuestion.id, answerToSubmit)
+                }}
                 className="w-full"
-                disabled={!selectedAnswer || hasSubmitted || (timeRemaining !== null && timeRemaining <= 0)}
+                disabled={
+                  (currentQuestion.type === "DRAG_TO_ORDER"
+                    ? dragToOrderItems.length === 0
+                    : !selectedAnswer) ||
+                  hasSubmitted ||
+                  (timeRemaining !== null && timeRemaining <= 0)
+                }
               >
                 {hasSubmitted ? "Réponse soumise" : timeRemaining === 0 ? "Temps écoulé" : "Soumettre la réponse"}
               </Button>
@@ -707,7 +788,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                       {Object.entries(question.response ?? {}).map(([userId, response]) => {
                         const participant = participants.find((p) => p.id === userId)
                         return (
-                          <div key={userId} className="flex items-start gap-2 p-2 rounded-md border items-center">
+                          <div key={userId} className="flex items-center gap-2 p-2 rounded-md border">
                             {participant?.image ? (
                               <img
                                 src={participant.image || "/placeholder.svg"}

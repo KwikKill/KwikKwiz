@@ -39,7 +39,7 @@ export function MainNav() {
   return (
     <div className="flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
       <div className="flex gap-6 md:gap-10">
-        <Link href="/dashboard" className="flex items-center space-x-2">
+        <Link href="/" className="flex items-center space-x-2">
           <img src="/icon.png" alt="Logo" className="h-8 w-8 rounded-full" />
           <span className="font-bold inline-block">KwikKwiz</span>
         </Link>

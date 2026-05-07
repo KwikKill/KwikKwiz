@@ -20,7 +20,7 @@ export type SessionState = {
     id: string
     text: string
     imageUrl?: string | null
-    type: "MULTIPLE_CHOICE" | "FREE_ANSWER"
+    type: "MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER"
     options?: string[]
     correctAnswer?: string | null
     response?: Record<
@@ -405,7 +405,7 @@ export function initSocketServer(server: Server) {
                 text: question.text,
                 imageUrl: question.imageUrl,
                 type: question.type,
-                options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
+                options: (question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") ? question.options : undefined,
               },
               timerDuration: sessionState.timerDuration,
               timeRemaining,
@@ -429,7 +429,7 @@ export function initSocketServer(server: Server) {
                 text: question.text,
                 imageUrl: question.imageUrl,
                 type: question.type,
-                options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
+                options: (question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") ? question.options : undefined,
               },
             })
           }
@@ -962,7 +962,7 @@ export function initSocketServer(server: Server) {
                     text: question.text,
                     imageUrl: question.imageUrl || null,
                     type: question.type,
-                    options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
+                    options: (question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") ? question.options : undefined,
                     correctAnswer: question.correctAnswer || null,
                     response: question.answers.reduce(
                       (acc: Record<string, { answer: string; isCorrect?: boolean | null }>, answer) => {
@@ -1100,7 +1100,7 @@ export function initSocketServer(server: Server) {
                   text: question.text,
                   imageUrl: question.imageUrl || null,
                   type: question.type,
-                  options: question.type === "MULTIPLE_CHOICE" ? question.options : undefined,
+                  options: (question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") ? question.options : undefined,
                   correctAnswer: question.correctAnswer || null,
                   response: question.answers.reduce(
                     (acc: Record<string, { answer: string; isCorrect?: boolean | null }>, answer) => {

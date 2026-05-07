@@ -30,7 +30,7 @@ interface Question {
   id: string
   text: string
   imageUrl: string | null
-  type: "MULTIPLE_CHOICE" | "FREE_ANSWER"
+  type: "MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER"
   options: string[]
   correctAnswer: string | null
   order: number
@@ -62,7 +62,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null)
   const [questionText, setQuestionText] = useState("")
   const [questionImageUrl, setQuestionImageUrl] = useState("")
-  const [questionType, setQuestionType] = useState<"MULTIPLE_CHOICE" | "FREE_ANSWER">("MULTIPLE_CHOICE")
+  const [questionType, setQuestionType] = useState<"MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER">("MULTIPLE_CHOICE")
   const [questionOptions, setQuestionOptions] = useState<string[]>(["", "", "", ""])
   const [correctAnswer, setCorrectAnswer] = useState("")
 
@@ -167,7 +167,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
       return false
     }
 
-    if (questionType === "MULTIPLE_CHOICE") {
+    if (questionType === "MULTIPLE_CHOICE" || questionType === "DRAG_TO_ORDER") {
       // Check if at least 2 options are provided
       const validOptions = questionOptions.filter((opt) => opt.trim().length > 0)
       if (validOptions.length < 2) {
@@ -201,7 +201,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
           text: questionText.trim(),
           imageUrl: questionImageUrl.trim() || null,
           type: questionType,
-          options: questionType === "MULTIPLE_CHOICE" ? validOptions : [],
+          options: (questionType === "MULTIPLE_CHOICE" || questionType === "DRAG_TO_ORDER") ? validOptions : [],
           correctAnswer: correctAnswer.trim() || null,
           order: questions.length, // Add to the end
         }),
@@ -253,7 +253,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
           text: questionText.trim(),
           imageUrl: questionImageUrl.trim() || null,
           type: questionType,
-          options: questionType === "MULTIPLE_CHOICE" ? validOptions : [],
+          options: (questionType === "MULTIPLE_CHOICE" || questionType === "DRAG_TO_ORDER") ? validOptions : [],
           correctAnswer: correctAnswer.trim() || null,
         }),
       })
@@ -387,7 +387,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
     setQuestionImageUrl(question.imageUrl || "")
     setQuestionType(question.type)
     setQuestionOptions(
-      question.type === "MULTIPLE_CHOICE"
+      question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER"
         ? [...question.options, ...Array(4 - question.options.length).fill("")]
         : ["", "", "", ""],
     )
@@ -556,7 +556,11 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
                                         Q{index + 1}
                                       </span>
                                       <span className="bg-primary/10 text-xs font-medium py-1 px-2 rounded-md">
-                                        {question.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
+                                        {question.type === "MULTIPLE_CHOICE"
+                                          ? "Multiple Choice"
+                                          : question.type === "DRAG_TO_ORDER"
+                                            ? "Drag to Order"
+                                            : "Free Answer"}
                                       </span>
                                       {question.imageUrl && (
                                         <span className="bg-muted text-xs font-medium py-1 px-2 rounded-md flex items-center">
@@ -567,7 +571,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
                                     </div>
                                     <p className="text-sm font-medium mb-2">{question.text}</p>
 
-                                    {question.type === "MULTIPLE_CHOICE" && (
+                                    {(question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") && (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
                                         {question.options.map((option, optIndex) => (
                                           <div
@@ -662,7 +666,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
               </label>
               <Select
                 value={questionType}
-                onValueChange={(value: "MULTIPLE_CHOICE" | "FREE_ANSWER") => setQuestionType(value)}
+                onValueChange={(value: "MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER") => setQuestionType(value)}
               >
                 <SelectTrigger id="question-type">
                   <SelectValue placeholder="Sélectionnez le type de question" />
@@ -670,13 +674,16 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
                 <SelectContent>
                   <SelectItem value="MULTIPLE_CHOICE">Multiple Choice</SelectItem>
                   <SelectItem value="FREE_ANSWER">Free Answer</SelectItem>
+                  <SelectItem value="DRAG_TO_ORDER">Drag to Order</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {questionType === "MULTIPLE_CHOICE" && (
+            {(questionType === "MULTIPLE_CHOICE" || questionType === "DRAG_TO_ORDER") && (
               <div className="grid gap-2">
-                <label className="text-sm font-medium">Options de réponse</label>
+                <label className="text-sm font-medium">
+                  {questionType === "DRAG_TO_ORDER" ? "Éléments à ordonner" : "Options de réponse"}
+                </label>
                 <div className="space-y-2">
                   {questionOptions.map((option, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -686,7 +693,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
                       <Input
                         value={option}
                         onChange={(e) => updateOption(index, e.target.value)}
-                        placeholder={`Option ${index + 1}`}
+                        placeholder={`${questionType === "DRAG_TO_ORDER" ? "Élément" : "Option"} ${index + 1}`}
                       />
                     </div>
                   ))}
@@ -696,7 +703,7 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
 
             <div className="grid gap-2">
               <label htmlFor="correct-answer" className="text-sm font-medium">
-                Réponse correcte (Optionnel)
+                {questionType === "DRAG_TO_ORDER" ? "Ordre correct (Optionnel)" : "Réponse correcte (Optionnel)"}
               </label>
               <Input
                 id="correct-answer"
@@ -705,11 +712,15 @@ export default function EditQuizPage({ params }: { params: Promise<{ id: string 
                 placeholder={
                   questionType === "MULTIPLE_CHOICE"
                     ? "Entrez l'option correcte (A, B, C...)"
-                    : "Entrez la réponse correcte"
+                    : questionType === "DRAG_TO_ORDER"
+                      ? "Ex: A,B,C,D (ou 0,1,2,3)"
+                      : "Entrez la réponse correcte"
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Ceci est pour faciliter la correction uniquement et ne sera pas affiché aux participants
+                {questionType === "DRAG_TO_ORDER"
+                  ? "Saisissez l'ordre correct des éléments (ex: A,B,C,D ou 0,1,2,3)"
+                  : "Ceci est pour faciliter la correction uniquement et ne sera pas affiché aux participants"}
               </p>
             </div>
           </div>

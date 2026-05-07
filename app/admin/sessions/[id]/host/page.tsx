@@ -21,7 +21,7 @@ interface Question {
   id: string
   text: string
   imageUrl: string | null
-  type: "MULTIPLE_CHOICE" | "FREE_ANSWER"
+  type: "MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER"
   options: string[]
   order: number
 }
@@ -85,8 +85,39 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     sendEmojiReaction,
   } = useQuizSession(sessionId, true)
 
+  const hasQuestionTimer = timerDuration !== null && timerDuration > 0
+
   const handleEmojiSelect = (emoji: string) => {
     sendEmojiReaction(emoji)
+  }
+
+  const getCorrectOrderItems = (q: Question | null) => {
+    if (!q) return []
+    const opts = q.options || []
+    const ca = (q as any).correctAnswer
+    if (!ca || typeof ca !== "string" || !ca.trim()) return opts
+    const parts = ca
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (parts.length !== opts.length) return opts
+
+    // Letters like A,B,C or a,b,c
+    if (parts.every((p) => /^[A-Z]$/i.test(p))) {
+      return parts.map((p) => opts[p.toUpperCase().charCodeAt(0) - 65] || "")
+    }
+
+    // Numeric indices like 0,1,2
+    if (parts.every((p) => /^\d+$/.test(p))) {
+      return parts.map((p) => opts[Number(p)] || "")
+    }
+
+    // If parts are exact option texts
+    if (parts.every((p) => opts.includes(p))) {
+      return parts
+    }
+
+    return opts
   }
 
   useEffect(() => {
@@ -139,6 +170,12 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
   }
 
   const handleSelectQuestion = (questionId: string) => {
+    if (status === "correction") {
+      selectCorrectionQuestion(questionId)
+      setCurrentTab("responses")
+      return
+    }
+
     selectQuestion(questionId)
     setCurrentTab("participants")
   }
@@ -439,9 +476,19 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             <Button
                               onClick={() => handleSelectQuestion(question.id)}
                               className="w-full"
-                              disabled={currentQuestion?.id === question.id}
+                              disabled={
+                                status === "correction"
+                                  ? correctionQuestion?.id === question.id
+                                  : currentQuestion?.id === question.id
+                              }
                             >
-                              {currentQuestion?.id === question.id ? "Question actuelle" : "Sélectionner la question"}
+                              {status === "correction"
+                                ? correctionQuestion?.id === question.id
+                                  ? "Question de correction actuelle"
+                                  : "Afficher en correction"
+                                : currentQuestion?.id === question.id
+                                  ? "Question actuelle"
+                                  : "Sélectionner la question"}
                             </Button>
                           )}
                         </CardFooter>
@@ -511,7 +558,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                       Répondu
                                     </Badge>
                                   )
-                                } else if (timeRemaining === 0 || !isTimerActive) {
+                                } else if (hasQuestionTimer && (timeRemaining === 0 || !isTimerActive)) {
                                   return (
                                     <Badge variant="destructive">
                                       <Clock className="h-3 w-3 mr-1" />
@@ -540,7 +587,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           const answeredCount = answers.filter((a) => a.questionId === currentQuestion.id).length
                           const totalParticipants = participants.length - 1 // Minus host
                           const timeoutCount =
-                            timeRemaining === 0 || !isTimerActive ? totalParticipants - answeredCount : 0
+                            hasQuestionTimer && (timeRemaining === 0 || !isTimerActive)
+                              ? totalParticipants - answeredCount
+                              : 0
                           const completedCount = answeredCount + timeoutCount
 
                           return (
@@ -553,7 +602,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                 className="mt-2 border-primary"
                                 value={(completedCount / totalParticipants) * 100}
                               />
-                              {timeRemaining !== null && (
+                              {hasQuestionTimer && timeRemaining !== null && (
                                 <div className="mt-2 text-center">
                                   <span
                                     className={`text-sm font-medium ${timeRemaining <= 10 ? "text-red-500" : "text-muted-foreground"}`}
@@ -669,7 +718,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                     return (
                                       <div
                                         key={userId}
-                                        className="flex items-start gap-2 p-2 rounded-md border items-center"
+                                        className="flex items-center gap-2 p-2 rounded-md border"
                                       >
                                         {participant?.image ? (
                                           <img
@@ -749,6 +798,9 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                       {question.type === "MULTIPLE_CHOICE" && (
                                         <p className="text-xs text-muted-foreground mt-1">Multiple Choice</p>
                                       )}
+                                      {question.type === "DRAG_TO_ORDER" && (
+                                        <p className="text-xs text-muted-foreground mt-1">Drag to Order</p>
+                                      )}
                                       {question.type === "FREE_ANSWER" && (
                                         <p className="text-xs text-muted-foreground mt-1">Free Answer</p>
                                       )}
@@ -794,17 +846,31 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                 <div className="flex justify-between items-center">
                                   <div className="flex items-center gap-2">
                                     <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                                    <h4 className="font-medium">Réponse attendue</h4>
+                                    <h4 className="font-medium">
+                                      {correctionQuestion.type === "DRAG_TO_ORDER"
+                                        ? "Ordre correct"
+                                        : "Réponse attendue"}
+                                    </h4>
                                   </div>
                                   <Badge variant="outline">
-                                    {correctionQuestion.type === "MULTIPLE_CHOICE" ? "Multiple Choice" : "Free Answer"}
+                                    {correctionQuestion.type === "MULTIPLE_CHOICE"
+                                      ? "Multiple Choice"
+                                      : correctionQuestion.type === "DRAG_TO_ORDER"
+                                        ? "Drag to Order"
+                                        : "Free Answer"}
                                   </Badge>
                                 </div>
                               </CardHeader>
                               <CardContent>
-                                <p className="text-lg font-medium bg-muted p-4 rounded-md">
-                                  {correctionQuestion.correctAnswer}
-                                </p>
+                                {correctionQuestion.type === "DRAG_TO_ORDER" ? (
+                                  <p className="text-lg font-medium bg-muted p-4 rounded-md">
+                                    {(correctionQuestion as any).correctAnswer || "(Aucun ordre configuré)"}
+                                  </p>
+                                ) : (
+                                  <p className="text-lg font-medium bg-muted p-4 rounded-md">
+                                    {correctionQuestion.correctAnswer}
+                                  </p>
+                                )}
                               </CardContent>
                             </Card>
 
@@ -831,9 +897,11 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                                       variant={currentShownAnswer.isCorrect ? "default" : "destructive"}
                                       className={currentShownAnswer.isCorrect ? "bg-green-500" : "bg-red-500"}
                                     >
-                                      {currentShownAnswer.isCorrect
-                                        ? `Correct (${currentShownAnswer.points} pts)`
-                                        : "Incorrect (0 pts)"}
+                                      {correctionQuestion.type === "DRAG_TO_ORDER"
+                                        ? `${currentShownAnswer.isCorrect ? "Correct" : "Partiel"} (${currentShownAnswer.points} pts)`
+                                        : currentShownAnswer.isCorrect
+                                          ? `Correct (${currentShownAnswer.points} pts)`
+                                          : "Incorrect (0 pts)"}
                                     </Badge>
                                   ) : (
                                     <Badge variant="outline">Non révisé</Badge>
@@ -842,32 +910,61 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                               </CardHeader>
                               <CardContent>
                                 <div className="space-y-4">
-                                  <div className="p-4 bg-muted rounded-md">
-                                    <p className="font-medium text-lg">{currentShownAnswer.answer}</p>
-                                  </div>
+                                  {correctionQuestion.type === "DRAG_TO_ORDER" ? (
+                                    <div className="space-y-2">
+                                      {currentShownAnswer.answer.split(",").map((item: string, index: number) => (
+                                        <div key={index} className="flex items-center gap-3 p-3 rounded-md border">
+                                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold text-white bg-muted">
+                                            {index + 1}
+                                          </div>
+                                          <span className="font-medium">{item.trim()}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="p-4 bg-muted rounded-md">
+                                      <p className="font-medium text-lg">{currentShownAnswer.answer}</p>
+                                    </div>
+                                  )}
 
                                   <div className="flex gap-2">
                                     <Button
                                       variant="outline"
                                       className={`flex-1 border-red-200 hover:bg-red-800 ${
-                                        currentShownAnswer.isCorrect === false ? "bg-red-500" : ""
+                                        currentShownAnswer.isCorrect === false
+                                          ? "bg-red-500"
+                                          : ""
                                       }`}
-                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer, false, 0)}
+                                      onClick={() =>
+                                        gradeCorrectionAnswer(currentShownAnswer, false, 0)
+                                      }
                                     >
                                       <XCircle
-                                        className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === false ? "" : "text-red-500"}`}
+                                        className={`h-4 w-4 mr-1 ${
+                                          currentShownAnswer.isCorrect === false
+                                            ? ""
+                                            : "text-red-500"
+                                        }`}
                                       />
                                       Incorrect (0 pts)
                                     </Button>
                                     <Button
                                       variant="outline"
                                       className={`flex-1 border-green-200 hover:bg-green-800 ${
-                                        currentShownAnswer.isCorrect === true ? "bg-green-500" : ""
+                                        currentShownAnswer.isCorrect === true
+                                          ? "bg-green-500"
+                                          : ""
                                       }`}
-                                      onClick={() => gradeCorrectionAnswer(currentShownAnswer, true, 1)}
+                                      onClick={() =>
+                                        gradeCorrectionAnswer(currentShownAnswer, true, 1)
+                                      }
                                     >
                                       <CheckCircle
-                                        className={`h-4 w-4 mr-1 ${currentShownAnswer.isCorrect === true ? "" : "text-green-500"}`}
+                                        className={`h-4 w-4 mr-1 ${
+                                          currentShownAnswer.isCorrect === true
+                                            ? ""
+                                            : "text-green-500"
+                                        }`}
                                       />
                                       Correct (1 pt)
                                     </Button>
@@ -966,7 +1063,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                   <div className="space-y-4">
                     <div className="bg-muted p-4 rounded-md">
                       <p className="mt-1">{currentQuestion.text}</p>
-                      {timeRemaining !== null && (
+                      {hasQuestionTimer && timeRemaining !== null && (
                         <div className="mt-2 flex items-center gap-2">
                           <Timer className="h-4 w-4" />
                           <span className={`text-sm font-medium ${timeRemaining <= 10 ? "text-red-500" : ""}`}>
@@ -1014,7 +1111,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         })}
 
                       {/* Show timeout participants when time is up */}
-                      {(timeRemaining === 0 || !isTimerActive) &&
+                      {hasQuestionTimer && (timeRemaining === 0 || !isTimerActive) &&
                         participants
                           .filter(
                             (p) =>
@@ -1052,7 +1149,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                           ))}
 
                       {answers.filter((a) => a.questionId === currentQuestion.id).length === 0 &&
-                        (timeRemaining === null || timeRemaining > 0) && (
+                        (!hasQuestionTimer || timeRemaining === null || timeRemaining > 0) && (
                           <div className="text-center py-8">
                             <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
                             <p className="mt-2 text-muted-foreground">Aucune réponse soumise pour le moment</p>
