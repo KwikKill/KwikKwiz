@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
 
@@ -24,6 +25,7 @@ function CreateSessionContent() {
   const [sessionDescription, setSessionDescription] = useState<string>("")
   const [sessionDate, setSessionDate] = useState<string>("")
   const [timerDuration, setTimerDuration] = useState<string>("")
+  const [allowAnswerEdit, setAllowAnswerEdit] = useState(false)
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -97,6 +99,7 @@ function CreateSessionContent() {
         name: sessionName.trim(),
         description: sessionDescription.trim() || null,
         sessionDate: sessionDate ? new Date(sessionDate).toISOString() : null,
+        allowAnswerEdit,
       }
 
       // Add timer duration if specified
@@ -234,6 +237,24 @@ function CreateSessionContent() {
               <p className="text-sm text-muted-foreground">
                 Optionnel : Définir un minuteur de compte à rebours pour chaque question (1-3600 secondes)
               </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="allow-answer-edit">Autoriser la modification des réponses</Label>
+              <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+                <div>
+                  <p className="text-sm font-medium">Édition pendant le chrono</p>
+                  <p className="text-xs text-muted-foreground">
+                    Les participants peuvent modifier leur réponse avant la fin du temps.
+                  </p>
+                </div>
+                <Switch
+                  id="allow-answer-edit"
+                  checked={allowAnswerEdit}
+                  onCheckedChange={setAllowAnswerEdit}
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
 
             {selectedQuizId && quizzes.length > 0 && (

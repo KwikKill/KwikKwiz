@@ -64,6 +64,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
   const [timerDuration, setTimerDuration] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [isTimerActive, setIsTimerActive] = useState(false)
+  const [allowAnswerEdit, setAllowAnswerEdit] = useState(false)
 
   const joinSession = useCallback(() => {
     if (socket && isConnected && sessionId) {
@@ -83,13 +84,14 @@ export function useQuizSession(sessionId: string, isHost = false) {
 
   const submitAnswer = useCallback(
     (questionId: string, answer: string) => {
-      if (socket && isConnected && !isHost && !hasSubmitted) {
+      const canEdit = allowAnswerEdit && (timeRemaining === null || timeRemaining > 0)
+      if (socket && isConnected && !isHost && (!hasSubmitted || canEdit)) {
         socket.emit("submit-answer", { sessionId, questionId, answer })
         setUserAnswer(answer)
         setHasSubmitted(true)
       }
     },
-    [socket, isConnected, sessionId, isHost, hasSubmitted],
+    [socket, isConnected, sessionId, isHost, hasSubmitted, allowAnswerEdit, timeRemaining],
   )
 
   const startCorrection = useCallback(() => {
@@ -163,6 +165,15 @@ export function useQuizSession(sessionId: string, isHost = false) {
     [socket, isConnected, sessionId, isHost],
   )
 
+  const updateAllowAnswerEdit = useCallback(
+    (enabled: boolean) => {
+      if (socket && isConnected && isHost) {
+        socket.emit("update-allow-answer-edit", { sessionId, allowAnswerEdit: enabled })
+      }
+    },
+    [socket, isConnected, sessionId, isHost],
+  )
+
   const sendEmojiReaction = useCallback(
     (emoji: string) => {
       if (socket && isConnected) {
@@ -220,6 +231,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setAskedQuestions(data.askedQuestions || [])
       setAnswers(data.answers || [])
       setTimerDuration(data.timerDuration || null)
+      setAllowAnswerEdit(!!data.allowAnswerEdit)
 
       if (status === "correction") {
         setCorrectionQuestion(data.correctionQuestion || null)
@@ -260,6 +272,10 @@ export function useQuizSession(sessionId: string, isHost = false) {
 
     const handleTimerUpdate = (data: any) => {
       setTimerDuration(data.timerDuration)
+    }
+
+    const handleAnswerEditUpdated = (data: any) => {
+      setAllowAnswerEdit(!!data.allowAnswerEdit)
     }
 
     const handleParticipantJoined = (data: any) => {
@@ -370,6 +386,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
     socket.on("session-state", handleSessionState)
     socket.on("new-question", handleNewQuestion)
     socket.on("timer-updated", handleTimerUpdate)
+    socket.on("answer-edit-updated", handleAnswerEditUpdated)
     socket.on("participant-joined", handleParticipantJoined)
     socket.on("answer-received", handleAnswerReceived)
     socket.on("participant-answered", handleParticipantAnswered)
@@ -385,6 +402,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
       socket.off("session-state", handleSessionState)
       socket.off("new-question", handleNewQuestion)
       socket.off("timer-updated", handleTimerUpdate)
+      socket.off("answer-edit-updated", handleAnswerEditUpdated)
       socket.off("participant-joined", handleParticipantJoined)
       socket.off("answer-received", handleAnswerReceived)
       socket.off("participant-answered", handleParticipantAnswered)
@@ -415,6 +433,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
     timerDuration,
     timeRemaining,
     isTimerActive,
+    allowAnswerEdit,
     joinSession,
     selectQuestion,
     submitAnswer,
@@ -424,6 +443,7 @@ export function useQuizSession(sessionId: string, isHost = false) {
     showCorrectionAnswer,
     gradeCorrectionAnswer,
     updateTimerDuration,
+    updateAllowAnswerEdit,
     sendEmojiReaction,
   }
 }

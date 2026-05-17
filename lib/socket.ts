@@ -9,6 +9,7 @@ export type SessionState = {
   participants: Map<string, { id: string; name: string; image: string; host: boolean }>
   answers: Map<string, Map<string, { answer: string; submittedAt: Date }>>
   status: "waiting" | "active" | "correction" | "completed"
+  allowAnswerEdit: boolean
   askedQuestions: Set<string>
   leaderboard?: Array<{
     userId: string
@@ -84,7 +85,7 @@ export function initSocketServer(server: Server) {
               },
             },
           },
-        })
+        }) as (quizSession & { participants: (participation & { user: { id: string; name: string | null; image: string | null } })[] }) | null
 
         if (!session) {
           socket.emit("error", { message: "Session not found" })
@@ -113,6 +114,7 @@ export function initSocketServer(server: Server) {
             participants,
             answers: new Map(),
             status: session.status.toLowerCase() as "waiting" | "active" | "correction" | "completed",
+            allowAnswerEdit: session.allowAnswerEdit ?? false,
             askedQuestions: new Set(),
             leaderboard: [],
             questions: [],
@@ -123,6 +125,10 @@ export function initSocketServer(server: Server) {
         }
 
         const sessionState = sessionStates.get(sessionId)!
+
+        if (sessionState.allowAnswerEdit === undefined) {
+          sessionState.allowAnswerEdit = session.allowAnswerEdit ?? false
+        }
 
         if (sessionState.currentQuestion && sessionState.currentQuestion.correctAnswer === undefined) {
           const questionWithAnswer = await prisma.question.findUnique({
@@ -308,6 +314,7 @@ export function initSocketServer(server: Server) {
             askedQuestions: Array.from(sessionState.askedQuestions),
             answers: allAnswers,
             timerDuration: sessionState.timerDuration,
+            allowAnswerEdit: sessionState.allowAnswerEdit,
             timeRemaining,
             correctionQuestion: sessionState.currentQuestion,
             correctionAnswers: answers.map((answer) => ({
@@ -333,6 +340,7 @@ export function initSocketServer(server: Server) {
             askedQuestions: Array.from(sessionState.askedQuestions),
             answers: allAnswers,
             timerDuration: sessionState.timerDuration,
+            allowAnswerEdit: sessionState.allowAnswerEdit,
             timeRemaining,
           })
         }
@@ -503,6 +511,30 @@ export function initSocketServer(server: Server) {
           return
         }
 
+        if (!sessionState.allowAnswerEdit) {
+          const existingAnswer = sessionState.answers.get(questionId)?.get(userId)
+          if (existingAnswer) {
+            socket.emit("error", { message: "Answer already submitted" })
+            return
+          }
+
+          const storedAnswer = await prisma.playerAnswer.findUnique({
+            where: {
+              sessionId_questionId_userId: {
+                sessionId,
+                questionId,
+                userId,
+              },
+            },
+            select: { id: true },
+          })
+
+          if (storedAnswer) {
+            socket.emit("error", { message: "Answer already submitted" })
+            return
+          }
+        }
+
         // Check if timer has expired (with 1 second grace period)
         if (sessionState.timerDuration && sessionState.questionStartTime) {
           const elapsed = Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000)
@@ -570,10 +602,44 @@ export function initSocketServer(server: Server) {
           questionId,
           answer: answer,
           submittedAt: new Date(),
+          edited: sessionState.allowAnswerEdit,
         })
       } catch (error) {
         console.error("Error submitting answer:", error)
         socket.emit("error", { message: "Failed to submit answer" })
+      }
+    })
+
+    // Update answer edit setting
+    socket.on("update-allow-answer-edit", async (data: { sessionId: string; allowAnswerEdit: boolean }) => {
+      try {
+        const { sessionId, allowAnswerEdit } = data
+
+        // Check if user is the host
+        const session = await prisma.quizSession.findUnique({
+          where: { id: sessionId },
+          select: { hostId: true },
+        })
+
+        if (!session || session.hostId !== userId) {
+          socket.emit("error", { message: "Only the host can update answer settings" })
+          return
+        }
+
+        const sessionState = sessionStates.get(sessionId)
+        if (sessionState) {
+          sessionState.allowAnswerEdit = allowAnswerEdit
+        }
+
+        await prisma.quizSession.update({
+          where: { id: sessionId },
+          data: { allowAnswerEdit },
+        })
+
+        io.to(sessionId).emit("answer-edit-updated", { allowAnswerEdit })
+      } catch (error) {
+        console.error("Error updating answer edit setting:", error)
+        socket.emit("error", { message: "Failed to update answer settings" })
       }
     })
 

@@ -63,6 +63,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     timeRemaining,
     isTimerActive,
     timerDuration,
+    allowAnswerEdit,
     joinSession,
     submitAnswer,
     sendEmojiReaction,
@@ -70,6 +71,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
   const [selectedAnswer, setSelectedAnswer] = useState("")
   const [dragToOrderItems, setDragToOrderItems] = useState<string[]>([])
+  const [lastSubmittedAnswer, setLastSubmittedAnswer] = useState("")
 
   useEffect(() => {
     if (authStatus === "authenticated" && authSession?.user && sessionId) {
@@ -93,6 +95,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   useEffect(() => {
     // Reset selectedAnswer when the currentQuestion changes
     setSelectedAnswer("")
+    setLastSubmittedAnswer("")
     if (currentQuestion?.type === "DRAG_TO_ORDER") {
       // Initialize dragToOrderItems with the options in their original order
       setDragToOrderItems(currentQuestion.options || [])
@@ -131,6 +134,30 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
     setDragToOrderItems(newItems)
   }
+
+  const canEditAnswer =
+    !isHost &&
+    (timeRemaining === null || timeRemaining > 0) &&
+    (!hasSubmitted || allowAnswerEdit)
+
+  const currentAnswerValue = currentQuestion
+    ? currentQuestion.type === "DRAG_TO_ORDER"
+      ? dragToOrderItems.join(",")
+      : selectedAnswer
+    : ""
+
+  const isAnswerEmpty = currentQuestion
+    ? currentQuestion.type === "DRAG_TO_ORDER"
+      ? dragToOrderItems.length === 0
+      : !selectedAnswer
+    : true
+
+  const isAnswerDirty =
+    !!allowAnswerEdit &&
+    !!hasSubmitted &&
+    currentAnswerValue.trim() !== lastSubmittedAnswer.trim()
+
+  const canSubmitAnswer = canEditAnswer && !isAnswerEmpty && (!hasSubmitted || isAnswerDirty)
 
   if (authStatus === "loading" || isLoading) {
     return (
@@ -333,7 +360,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                   <RadioGroup
                     value={selectedAnswer}
                     onValueChange={setSelectedAnswer}
-                    disabled={hasSubmitted || (timeRemaining !== null && timeRemaining <= 0)}
+                    disabled={!canEditAnswer}
                   >
                     <div className="space-y-3">
                       {currentQuestion.options?.map((option: string, index: number) => (
@@ -355,6 +382,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                           ref={provided.innerRef}
                           className={`space-y-2 p-4 rounded-md transition-colors ${
                             snapshot.isDraggingOver ? "bg-primary/10" : "bg-muted/30"
+                          } ${
+                            canEditAnswer ? "" : "pointer-events-none opacity-60"
                           }`}
                         >
                           {dragToOrderItems.map((item, index) => (
@@ -390,7 +419,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                     placeholder="Type your answer here..."
                     value={selectedAnswer}
                     onChange={(e) => setSelectedAnswer(e.target.value)}
-                    disabled={hasSubmitted || (timeRemaining !== null && timeRemaining <= 0)}
+                    disabled={!canEditAnswer}
                     rows={4}
                   />
                 )}
@@ -419,22 +448,21 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             {!isHost && (
               <Button
                 onClick={() => {
-                  const answerToSubmit =
-                    currentQuestion.type === "DRAG_TO_ORDER"
-                      ? dragToOrderItems.join(",")
-                      : selectedAnswer
+                  const answerToSubmit = currentAnswerValue
                   submitAnswer(currentQuestion.id, answerToSubmit)
+                  setLastSubmittedAnswer(answerToSubmit)
                 }}
                 className="w-full"
-                disabled={
-                  (currentQuestion.type === "DRAG_TO_ORDER"
-                    ? dragToOrderItems.length === 0
-                    : !selectedAnswer) ||
-                  hasSubmitted ||
-                  (timeRemaining !== null && timeRemaining <= 0)
-                }
+                variant={hasSubmitted && !isAnswerDirty ? "secondary" : "default"}
+                disabled={!canSubmitAnswer}
               >
-                {hasSubmitted ? "Réponse soumise" : timeRemaining === 0 ? "Temps écoulé" : "Soumettre la réponse"}
+                {timeRemaining === 0
+                  ? "Temps écoulé"
+                  : hasSubmitted && allowAnswerEdit
+                    ? "Mettre à jour la réponse"
+                    : hasSubmitted
+                      ? "Réponse soumise"
+                      : "Soumettre la réponse"}
               </Button>
             )}
 

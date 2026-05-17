@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { quizId, name, description, sessionDate, timerDuration } = await request.json()
+    const { quizId, name, description, sessionDate, timerDuration, allowAnswerEdit } = await request.json()
 
     if (!quizId) {
       return NextResponse.json({ error: "Quiz ID is required" }, { status: 400 })
@@ -84,6 +84,10 @@ export async function POST(request: Request) {
 
     if (timerDuration && Number.parseInt(timerDuration) > 0) {
       sessionData.timerDuration = Number.parseInt(timerDuration)
+    }
+
+    if (allowAnswerEdit === true) {
+      sessionData.allowAnswerEdit = true
     }
 
     // Create new quiz session

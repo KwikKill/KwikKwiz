@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { useQuizSession } from "@/lib/hooks/use-quiz-session"
 import { useToast } from "@/hooks/use-toast"
 import { Users, Clock, CheckCircle, XCircle, AlertCircle, Trophy, Share, Timer } from "lucide-react"
@@ -44,6 +45,7 @@ interface QuizSessionDetails {
   hostId: string
   status: "waiting" | "active" | "correction" | "completed"
   timerDuration: number | null
+  allowAnswerEdit?: boolean
   quiz: {
     id: string
     name: string
@@ -83,6 +85,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     timerDuration,
     timeRemaining,
     isTimerActive,
+    allowAnswerEdit,
     selectQuestion,
     startCorrection,
     endSession,
@@ -90,6 +93,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     showCorrectionAnswer,
     gradeCorrectionAnswer,
     updateTimerDuration,
+    updateAllowAnswerEdit,
     sendEmojiReaction,
   } = useQuizSession(sessionId, true)
 
@@ -362,6 +366,23 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       <p className="text-sm text-muted-foreground">
                         Actuel : {timerDuration ? `${timerDuration} secondes` : "Pas de minuteur"}
                       </p>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="allow-answer-edit">Autoriser la modification des réponses</Label>
+                      <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+                        <div>
+                          <p className="text-sm font-medium">Édition pendant le chrono</p>
+                          <p className="text-xs text-muted-foreground">
+                            Les participants peuvent modifier leur réponse avant la fin du temps.
+                          </p>
+                        </div>
+                        <Switch
+                          id="allow-answer-edit"
+                          checked={!!allowAnswerEdit}
+                          onCheckedChange={(checked) => updateAllowAnswerEdit(checked)}
+                        />
+                      </div>
                     </div>
 
                     <div className="bg-muted p-4 rounded-md">

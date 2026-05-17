@@ -105,6 +105,7 @@ model QuizSession {
   description       String?
   sessionDate       DateTime?
   timerDuration     Int?
+  allowAnswerEdit   Boolean         @default(false)
 }
 
 enum SessionStatus {
