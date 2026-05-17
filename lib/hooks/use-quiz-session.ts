@@ -17,7 +17,8 @@ type Question = {
   imageUrl?: string
   type: "MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER"
   options?: string[]
-  correctAnswer: string
+  order: number
+  correctAnswer?: string | null
   response?: Record<
     string,
     {

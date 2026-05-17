@@ -17,13 +17,21 @@ import { Users, Clock, CheckCircle, XCircle, AlertCircle, Trophy, Share, Timer }
 import { EmojiSelector } from "@/components/emoji-selector"
 import { EmojiRain } from "@/components/emoji-rain"
 
-interface Question {
+type Question = {
   id: string
   text: string
-  imageUrl: string | null
+  imageUrl?: string
   type: "MULTIPLE_CHOICE" | "FREE_ANSWER" | "DRAG_TO_ORDER"
-  options: string[]
+  options?: string[]
   order: number
+  correctAnswer?: string | null
+  response?: Record<
+    string,
+    {
+      answer: string
+      isCorrect?: boolean | null
+    }
+  >
 }
 
 interface QuizSessionDetails {
@@ -91,33 +99,23 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     sendEmojiReaction(emoji)
   }
 
-  const getCorrectOrderItems = (q: Question | null) => {
-    if (!q) return []
+  const getExpectedAnswerText = (q: any) => {
+    if (!q?.correctAnswer) return null
+    const answer = String(q.correctAnswer).trim()
+    if (!answer) return null
     const opts = q.options || []
-    const ca = (q as any).correctAnswer
-    if (!ca || typeof ca !== "string" || !ca.trim()) return opts
-    const parts = ca
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-    if (parts.length !== opts.length) return opts
 
-    // Letters like A,B,C or a,b,c
-    if (parts.every((p) => /^[A-Z]$/i.test(p))) {
-      return parts.map((p) => opts[p.toUpperCase().charCodeAt(0) - 65] || "")
+    if (opts.includes(answer)) return answer
+    if (/^[A-Z]$/i.test(answer)) {
+      const index = answer.toUpperCase().charCodeAt(0) - 65
+      return opts[index] || answer
+    }
+    if (/^\d+$/.test(answer)) {
+      const index = Number(answer)
+      return opts[index] || answer
     }
 
-    // Numeric indices like 0,1,2
-    if (parts.every((p) => /^\d+$/.test(p))) {
-      return parts.map((p) => opts[Number(p)] || "")
-    }
-
-    // If parts are exact option texts
-    if (parts.every((p) => opts.includes(p))) {
-      return parts
-    }
-
-    return opts
+    return answer
   }
 
   useEffect(() => {
@@ -459,7 +457,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                         {question.type === "MULTIPLE_CHOICE" && (
                           <CardContent className="p-4 pt-2">
                             <div className="space-y-2 mt-2">
-                              {question.options.map((option, index) => (
+                              {question.options?.map((option, index) => (
                                 <div key={index} className="flex items-center gap-2 p-2 rounded-md border">
                                   <span className="text-xs font-medium bg-muted w-6 h-6 rounded-full flex items-center justify-center">
                                     {String.fromCharCode(65 + index)}
@@ -524,6 +522,38 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
               <ScrollArea className="h-[60vh]">
                 {participants.length > 0 ? (
                   <div className="space-y-2">
+                    {currentQuestion && status === "active" && (
+                      <Card className="border-primary/50">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">Réponse attendue</CardTitle>
+                            <Badge variant="outline">
+                              {currentQuestion.type === "MULTIPLE_CHOICE"
+                                ? "Choix multiple"
+                                : currentQuestion.type === "DRAG_TO_ORDER"
+                                  ? "Ordonner"
+                                  : "Réponse libre"}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          {(() => {
+                            const fallbackQuestion = quizSession?.quiz?.questions?.find(
+                              (question) => question.id === currentQuestion.id,
+                            )
+                            const expectedQuestion = currentQuestion.correctAnswer
+                              ? currentQuestion
+                              : fallbackQuestion
+
+                            return (
+                              <p className="text-sm font-medium bg-muted p-3 rounded-md">
+                                {getExpectedAnswerText(expectedQuestion) || "Reponse attendue non definie"}
+                              </p>
+                            )
+                          })()}
+                        </CardContent>
+                      </Card>
+                    )}
                     {participants.map((participant) => (
                       <div key={participant.id} className="flex items-center justify-between p-3 border rounded-md">
                         <div className="flex items-center gap-2">

@@ -32,6 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 imageUrl: true,
                 type: true,
                 options: true,
+                correctAnswer: true,
                 order: true,
               },
             },
@@ -69,7 +70,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       })
     }
 
-    return NextResponse.json(quizSession)
+    const responsePayload = isHost
+      ? quizSession
+      : {
+          ...quizSession,
+          quiz: {
+            ...quizSession.quiz,
+            questions: quizSession.quiz.questions.map(({ correctAnswer, ...question }) => question),
+          },
+        }
+
+    return NextResponse.json(responsePayload)
   } catch (error) {
     console.error("Error fetching session:", error)
     return NextResponse.json({ error: "Failed to fetch session details" }, { status: 404 })

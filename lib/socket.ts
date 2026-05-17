@@ -49,6 +49,12 @@ export const sessionStates = new Map<string, SessionState>()
 export function initSocketServer(server: Server) {
   const io = new IOServer(server)
 
+  const sanitizeQuestionForParticipant = (question: any) => {
+    if (!question) return question
+    const { correctAnswer, ...rest } = question
+    return rest
+  }
+
   io.on("connection", (socket) => {
     const userId = socket.handshake.auth.userId
 
@@ -117,6 +123,27 @@ export function initSocketServer(server: Server) {
         }
 
         const sessionState = sessionStates.get(sessionId)!
+
+        if (sessionState.currentQuestion && sessionState.currentQuestion.correctAnswer === undefined) {
+          const questionWithAnswer = await prisma.question.findUnique({
+            where: { id: sessionState.currentQuestion.id },
+            select: {
+              id: true,
+              text: true,
+              imageUrl: true,
+              type: true,
+              options: true,
+              correctAnswer: true,
+            },
+          })
+
+          if (questionWithAnswer) {
+            sessionState.currentQuestion = {
+              ...sessionState.currentQuestion,
+              ...questionWithAnswer,
+            }
+          }
+        }
 
         // Add participant if not already in the session
         if (!sessionState.participants.has(userId)) {
@@ -247,6 +274,11 @@ export function initSocketServer(server: Server) {
           timeRemaining = Math.max(0, sessionState.timerDuration - elapsed)
         }
 
+        const isHostUser = session.hostId === userId
+        const currentQuestionForSocket = isHostUser
+          ? sessionState.currentQuestion
+          : sanitizeQuestionForParticipant(sessionState.currentQuestion)
+
         if (sessionState.status === "correction") {
           // Get all answers for this question
           const answers = await prisma.playerAnswer.findMany({
@@ -269,7 +301,7 @@ export function initSocketServer(server: Server) {
           socket.emit("session-state", {
             sessionId,
             status: sessionState.status,
-            currentQuestion: sessionState.currentQuestion,
+            currentQuestion: currentQuestionForSocket,
             participants: Array.from(sessionState.participants.values()),
             leaderboard: sessionState.leaderboard || [],
             questions: [],
@@ -294,7 +326,7 @@ export function initSocketServer(server: Server) {
           socket.emit("session-state", {
             sessionId,
             status: sessionState.status,
-            currentQuestion: sessionState.currentQuestion,
+            currentQuestion: currentQuestionForSocket,
             participants: Array.from(sessionState.participants.values()),
             leaderboard: sessionState.leaderboard || [],
             questions: sessionState.status === "completed" ? sessionState.questions : [],
@@ -362,6 +394,7 @@ export function initSocketServer(server: Server) {
             imageUrl: true,
             type: true,
             options: true,
+            correctAnswer: true,
           },
         })
 
@@ -398,15 +431,34 @@ export function initSocketServer(server: Server) {
             }
 
             // Broadcast the question to all participants
-            io.to(sessionId).emit("new-question", {
+            const questionForParticipants = sanitizeQuestionForParticipant({
+              id: question.id,
+              text: question.text,
+              imageUrl: question.imageUrl,
+              type: question.type,
+              options: (question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") ? question.options : undefined,
+              correctAnswer: question.correctAnswer || null,
+            })
+
+            const questionForHost = {
+              id: question.id,
+              text: question.text,
+              imageUrl: question.imageUrl,
+              type: question.type,
+              options: (question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") ? question.options : undefined,
+              correctAnswer: question.correctAnswer || null,
+            }
+
+            socket.emit("new-question", {
               status: sessionState.status,
-              question: {
-                id: question.id,
-                text: question.text,
-                imageUrl: question.imageUrl,
-                type: question.type,
-                options: (question.type === "MULTIPLE_CHOICE" || question.type === "DRAG_TO_ORDER") ? question.options : undefined,
-              },
+              question: questionForHost,
+              timerDuration: sessionState.timerDuration,
+              timeRemaining,
+            })
+
+            socket.to(sessionId).emit("new-question", {
+              status: sessionState.status,
+              question: questionForParticipants,
               timerDuration: sessionState.timerDuration,
               timeRemaining,
             })
