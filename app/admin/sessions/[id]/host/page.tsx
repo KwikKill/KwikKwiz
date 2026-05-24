@@ -193,6 +193,21 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
   }
 
   const handleSelectQuestion = (questionId: string) => {
+    if (status === "active" && currentQuestion?.id && questionId !== currentQuestion.id) {
+      const playerIds = participants.filter((p) => !p.host).map((p) => p.id)
+      const answeredIds = new Set(
+        answers.filter((a) => a.questionId === currentQuestion.id).map((a) => a.userId),
+      )
+      const unansweredCount = playerIds.filter((id) => !answeredIds.has(id)).length
+
+      if (unansweredCount > 0) {
+        const confirmed = window.confirm(
+          `Vous allez changer de question alors que ${unansweredCount} joueur(s) n'ont pas répondu. Continuer ?`,
+        )
+        if (!confirmed) return
+      }
+    }
+
     if (status === "correction") {
       selectCorrectionQuestion(questionId)
       setCurrentTab("responses")
