@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -70,6 +70,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
   const [isLoading, setIsLoading] = useState(true)
   const [currentTab, setCurrentTab] = useState("questions")
   const [newTimerDuration, setNewTimerDuration] = useState<string>("")
+  const currentQuestionCardRef = useRef<HTMLDivElement | null>(null)
 
   const {
     status,
@@ -103,6 +104,21 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
   } = useQuizSession(sessionId, true)
 
   const hasQuestionTimer = timerDuration !== null && timerDuration > 0
+
+  const activeQuestionId = status === "correction" ? correctionQuestion?.id : currentQuestion?.id
+
+  useEffect(() => {
+    if (currentTab !== "questions") return
+    if (!activeQuestionId) return
+
+    // Let the tab content render before attempting to scroll.
+    requestAnimationFrame(() => {
+      currentQuestionCardRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
+    })
+  }, [currentTab, activeQuestionId])
 
   const handleEmojiSelect = (emoji: string) => {
     sendEmojiReaction(emoji)
@@ -443,7 +459,11 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                       questionAnswers.every((a) => a.isCorrect !== undefined && a.isCorrect !== null)
 
                     return (
-                      <Card key={question.id} className="overflow-hidden">
+                      <div
+                        key={question.id}
+                        ref={question.id === activeQuestionId ? currentQuestionCardRef : undefined}
+                      >
+                        <Card className="overflow-hidden">
                         <CardHeader className="p-4 pb-2">
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-2">
@@ -516,7 +536,8 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
                             </Button>
                           )}
                         </CardFooter>
-                      </Card>
+                        </Card>
+                      </div>
                     )
                   })}
 
