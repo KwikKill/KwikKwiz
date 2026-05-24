@@ -34,6 +34,9 @@ export type SessionState = {
   }[]
   timerDuration: number | null
   questionStartTime: Date | null
+  timerModificationSeconds: number
+  timerPaused: boolean
+  pausedRemaining: number | null
   currentShownAnswer: {
     id: string
     userId: string
@@ -85,7 +88,7 @@ export function initSocketServer(server: Server) {
               },
             },
           },
-        }) as (quizSession & { participants: (participation & { user: { id: string; name: string | null; image: string | null } })[] }) | null
+        })
 
         if (!session) {
           socket.emit("error", { message: "Session not found" })
@@ -120,6 +123,9 @@ export function initSocketServer(server: Server) {
             questions: [],
             timerDuration: session.timerDuration,
             questionStartTime: null,
+            timerModificationSeconds: 0,
+            timerPaused: false,
+            pausedRemaining: null,
             currentShownAnswer: null,
           })
         }
@@ -128,6 +134,15 @@ export function initSocketServer(server: Server) {
 
         if (sessionState.allowAnswerEdit === undefined) {
           sessionState.allowAnswerEdit = session.allowAnswerEdit ?? false
+        }
+
+        if (sessionState.timerPaused === undefined) {
+          sessionState.timerPaused = false
+          sessionState.pausedRemaining = null
+        }
+
+        if (typeof sessionState.timerModificationSeconds !== "number") {
+          sessionState.timerModificationSeconds = 0
         }
 
         if (sessionState.currentQuestion && sessionState.currentQuestion.correctAnswer === undefined) {
@@ -275,9 +290,14 @@ export function initSocketServer(server: Server) {
 
         // Calculate remaining time if there's an active question with timer
         let timeRemaining = null
-        if (sessionState.currentQuestion && sessionState.timerDuration && sessionState.questionStartTime) {
-          const elapsed = Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000)
-          timeRemaining = Math.max(0, sessionState.timerDuration - elapsed)
+        if (sessionState.currentQuestion && sessionState.timerDuration) {
+          if (sessionState.timerPaused && sessionState.pausedRemaining !== null) {
+            timeRemaining = sessionState.pausedRemaining
+          } else if (sessionState.questionStartTime) {
+            const elapsed = Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000)
+            const total = sessionState.timerDuration + (sessionState.timerModificationSeconds || 0)
+            timeRemaining = Math.max(0, total - elapsed)
+          }
         }
 
         const isHostUser = session.hostId === userId
@@ -315,7 +335,10 @@ export function initSocketServer(server: Server) {
             answers: allAnswers,
             timerDuration: sessionState.timerDuration,
             allowAnswerEdit: sessionState.allowAnswerEdit,
+            timerPaused: sessionState.timerPaused,
             timeRemaining,
+            questionStartTime: sessionState.questionStartTime ? sessionState.questionStartTime.toISOString() : null,
+            timerModificationSeconds: sessionState.timerModificationSeconds || 0,
             correctionQuestion: sessionState.currentQuestion,
             correctionAnswers: answers.map((answer) => ({
               id: answer.id,
@@ -341,7 +364,10 @@ export function initSocketServer(server: Server) {
             answers: allAnswers,
             timerDuration: sessionState.timerDuration,
             allowAnswerEdit: sessionState.allowAnswerEdit,
+            timerPaused: sessionState.timerPaused,
             timeRemaining,
+            questionStartTime: sessionState.questionStartTime ? sessionState.questionStartTime.toISOString() : null,
+            timerModificationSeconds: sessionState.timerModificationSeconds || 0,
           })
         }
       } catch (error) {
@@ -418,6 +444,9 @@ export function initSocketServer(server: Server) {
             sessionState.currentQuestion = question
             sessionState.status = "active"
             sessionState.questionStartTime = new Date()
+            sessionState.timerModificationSeconds = 0
+            sessionState.timerPaused = false
+            sessionState.pausedRemaining = null
 
             // Track that this question was asked
             sessionState.askedQuestions.add(questionId)
@@ -461,14 +490,20 @@ export function initSocketServer(server: Server) {
               status: sessionState.status,
               question: questionForHost,
               timerDuration: sessionState.timerDuration,
+              timerPaused: sessionState.timerPaused,
               timeRemaining,
+              questionStartTime: sessionState.questionStartTime ? sessionState.questionStartTime.toISOString() : null,
+              timerModificationSeconds: sessionState.timerModificationSeconds || 0,
             })
 
             socket.to(sessionId).emit("new-question", {
               status: sessionState.status,
               question: questionForParticipants,
               timerDuration: sessionState.timerDuration,
+              timerPaused: sessionState.timerPaused,
               timeRemaining,
+              questionStartTime: sessionState.questionStartTime ? sessionState.questionStartTime.toISOString() : null,
+              timerModificationSeconds: sessionState.timerModificationSeconds || 0,
             })
           } else if (sessionState.status === "correction") {
             // If in correction mode, just update the current question
@@ -536,9 +571,9 @@ export function initSocketServer(server: Server) {
         }
 
         // Check if timer has expired (with 1 second grace period)
-        if (sessionState.timerDuration && sessionState.questionStartTime) {
+        if (sessionState.timerDuration && sessionState.questionStartTime && !sessionState.timerPaused) {
           const elapsed = Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000)
-          const timeLimit = sessionState.timerDuration + 1 // 1 second grace period
+          const timeLimit = sessionState.timerDuration + (sessionState.timerModificationSeconds || 0) + 1 // 1 second grace period
 
           if (elapsed > timeLimit) {
             socket.emit("error", { message: "Time limit exceeded" })
@@ -643,6 +678,207 @@ export function initSocketServer(server: Server) {
       }
     })
 
+    // Pause timer
+    socket.on("pause-timer", async (data: { sessionId: string }) => {
+      try {
+        const { sessionId } = data
+
+        const session = await prisma.quizSession.findUnique({
+          where: { id: sessionId },
+          select: { hostId: true },
+        })
+
+        if (!session || session.hostId !== userId) {
+          socket.emit("error", { message: "Only the host can pause the timer" })
+          return
+        }
+
+        const sessionState = sessionStates.get(sessionId)
+        if (!sessionState || sessionState.status !== "active" || !sessionState.timerDuration) {
+          socket.emit("error", { message: "Timer is not active" })
+          return
+        }
+
+        if (!sessionState.timerPaused) {
+          const elapsed = sessionState.questionStartTime
+            ? Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000)
+            : 0
+          const total = sessionState.timerDuration + (sessionState.timerModificationSeconds || 0)
+          sessionState.pausedRemaining = Math.max(0, total - elapsed)
+          sessionState.timerPaused = true
+        }
+
+        io.to(sessionId).emit("timer-paused", {
+          timeRemaining: sessionState.pausedRemaining ?? null,
+          questionStartTime: sessionState.questionStartTime ? sessionState.questionStartTime.toISOString() : null,
+          timerModificationSeconds: sessionState.timerModificationSeconds || 0,
+        })
+      } catch (error) {
+        console.error("Error pausing timer:", error)
+        socket.emit("error", { message: "Failed to pause timer" })
+      }
+    })
+
+    // Resume timer
+    socket.on("resume-timer", async (data: { sessionId: string }) => {
+      try {
+        const { sessionId } = data
+
+        const session = await prisma.quizSession.findUnique({
+          where: { id: sessionId },
+          select: { hostId: true },
+        })
+
+        if (!session || session.hostId !== userId) {
+          socket.emit("error", { message: "Only the host can resume the timer" })
+          return
+        }
+
+        const sessionState = sessionStates.get(sessionId)
+        if (!sessionState || sessionState.status !== "active" || !sessionState.timerDuration) {
+          socket.emit("error", { message: "Timer is not active" })
+          return
+        }
+
+        let remaining = sessionState.timerDuration
+
+        if (sessionState.timerPaused) {
+          remaining = sessionState.pausedRemaining ?? sessionState.timerDuration
+          const total = sessionState.timerDuration + (sessionState.timerModificationSeconds || 0)
+          const elapsed = Math.max(0, total - remaining)
+          sessionState.questionStartTime = new Date(Date.now() - elapsed * 1000)
+          sessionState.timerPaused = false
+          sessionState.pausedRemaining = null
+        }
+
+        io.to(sessionId).emit("timer-resumed", {
+          timeRemaining: remaining,
+          questionStartTime: sessionState.questionStartTime ? sessionState.questionStartTime.toISOString() : null,
+          timerModificationSeconds: sessionState.timerModificationSeconds || 0,
+        })
+      } catch (error) {
+        console.error("Error resuming timer:", error)
+        socket.emit("error", { message: "Failed to resume timer" })
+      }
+    })
+
+    // Focus timer on participants
+    socket.on("focus-timer", async (data: { sessionId: string; durationMs?: number }) => {
+      try {
+        const { sessionId, durationMs } = data
+
+        const session = await prisma.quizSession.findUnique({
+          where: { id: sessionId },
+          select: { hostId: true },
+        })
+
+        if (!session || session.hostId !== userId) {
+          socket.emit("error", { message: "Only the host can focus the timer" })
+          return
+        }
+
+        const sessionState = sessionStates.get(sessionId)
+        if (!sessionState || sessionState.status !== "active" || !sessionState.timerDuration) {
+          socket.emit("error", { message: "Timer is not active" })
+          return
+        }
+
+        const safeDuration = Math.max(1000, Math.min(15000, Math.floor(durationMs || 5000)))
+
+        io.to(sessionId).emit("timer-focused", {
+          durationMs: safeDuration,
+        })
+      } catch (error) {
+        console.error("Error focusing timer:", error)
+        socket.emit("error", { message: "Failed to focus timer" })
+      }
+    })
+
+    // Add/remove time to current question (seconds can be negative)
+    socket.on("add-time", async (data: { sessionId: string; seconds: number }) => {
+      try {
+        const { sessionId, seconds } = data
+
+        const session = await prisma.quizSession.findUnique({
+          where: { id: sessionId },
+          select: { hostId: true },
+        })
+
+        if (!session || session.hostId !== userId) {
+          socket.emit("error", { message: "Only the host can add time" })
+          return
+        }
+
+        const sessionState = sessionStates.get(sessionId)
+        if (!sessionState || sessionState.status !== "active" || !sessionState.timerDuration) {
+          socket.emit("error", { message: "Timer is not active" })
+          return
+        }
+
+        const rawDeltaSeconds = Number.isFinite(seconds) ? Math.trunc(seconds) : 0
+        const requestedDeltaSeconds = Math.max(-3600, Math.min(3600, rawDeltaSeconds))
+        if (!requestedDeltaSeconds) return
+
+        if (!sessionState.questionStartTime) {
+          sessionState.questionStartTime = new Date()
+        }
+
+        const totalBefore = sessionState.timerDuration + (sessionState.timerModificationSeconds || 0)
+
+        const getRemainingSeconds = (): number => {
+          if (sessionState.timerPaused) {
+            return typeof sessionState.pausedRemaining === "number" ? sessionState.pausedRemaining : totalBefore
+          }
+          const elapsed = Math.floor((Date.now() - sessionState.questionStartTime!.getTime()) / 1000)
+          return Math.max(0, totalBefore - elapsed)
+        }
+
+        const previousRemaining = getRemainingSeconds()
+
+        // Prevent timer total (duration + modification) from going below 0.
+        const currentModification = sessionState.timerModificationSeconds || 0
+        const minModification = -sessionState.timerDuration
+        const maxModification = 3600
+        const nextModification = Math.max(
+          minModification,
+          Math.min(maxModification, currentModification + requestedDeltaSeconds),
+        )
+        const appliedDeltaSeconds = nextModification - currentModification
+
+        // If we're already at 0 and host tries to subtract more, do nothing.
+        if (appliedDeltaSeconds === 0) return
+
+        sessionState.timerModificationSeconds = nextModification
+
+        if (sessionState.timerPaused && typeof sessionState.pausedRemaining === "number") {
+          sessionState.pausedRemaining = Math.max(0, sessionState.pausedRemaining + appliedDeltaSeconds)
+        }
+
+        const totalAfter = sessionState.timerDuration + nextModification
+        const nextRemaining = sessionState.timerPaused
+          ? (typeof sessionState.pausedRemaining === "number" ? sessionState.pausedRemaining : totalAfter)
+          : Math.max(
+              0,
+              totalAfter -
+                Math.floor((Date.now() - sessionState.questionStartTime.getTime()) / 1000),
+            )
+
+        io.to(sessionId).emit("timer-extended", {
+          timeRemaining: nextRemaining,
+          deltaSeconds: appliedDeltaSeconds,
+          addedSeconds: appliedDeltaSeconds,
+          previousRemaining,
+          previousTimeRemaining: previousRemaining,
+          reopened: previousRemaining === 0 && nextRemaining > 0,
+          questionStartTime: sessionState.questionStartTime ? sessionState.questionStartTime.toISOString() : null,
+          timerModificationSeconds: sessionState.timerModificationSeconds || 0,
+        })
+      } catch (error) {
+        console.error("Error adding time:", error)
+        socket.emit("error", { message: "Failed to add time" })
+      }
+    })
+
     // Update timer duration
     socket.on("update-timer", async (data: { sessionId: string; timerDuration: number | null }) => {
       try {
@@ -700,6 +936,8 @@ export function initSocketServer(server: Server) {
         if (sessionState) {
           sessionState.status = "correction"
           sessionState.questionStartTime = null // Clear timer
+          sessionState.timerPaused = false
+          sessionState.pausedRemaining = null
 
           // Update session in database
           await prisma.quizSession.update({
@@ -1137,6 +1375,10 @@ export function initSocketServer(server: Server) {
         if (sessionState) {
           sessionState.status = "completed"
           sessionState.questionStartTime = null // Clear timer
+          sessionState.timerPaused = false
+          sessionState.pausedRemaining = null
+          sessionState.timerPaused = false
+          sessionState.pausedRemaining = null
 
           // Update session in database
           await prisma.quizSession.update({

@@ -85,6 +85,7 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     timerDuration,
     timeRemaining,
     isTimerActive,
+    isTimerPaused,
     allowAnswerEdit,
     selectQuestion,
     startCorrection,
@@ -94,6 +95,10 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
     gradeCorrectionAnswer,
     updateTimerDuration,
     updateAllowAnswerEdit,
+    pauseTimer,
+    resumeTimer,
+    addTimeToQuestion,
+    focusTimer,
     sendEmojiReaction,
   } = useQuizSession(sessionId, true)
 
@@ -543,6 +548,71 @@ export default function HostSessionPage({ params }: { params: Promise<{ id: stri
               <ScrollArea className="h-[60vh]">
                 {participants.length > 0 ? (
                   <div className="space-y-2">
+                    {currentQuestion && status === "active" && hasQuestionTimer && (
+                      <Card className="border-primary/50">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">Minuteur</CardTitle>
+                            <Badge variant={isTimerPaused ? "destructive" : "outline"}>
+                              {isTimerPaused ? "En pause" : "En cours"}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Temps restant</span>
+                            <span className="text-sm font-medium">
+                              {timeRemaining !== null ? formatTime(timeRemaining) : "-"}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant={isTimerPaused ? "default" : "outline"}
+                              onClick={() => (isTimerPaused ? resumeTimer() : pauseTimer())}
+                            >
+                              {isTimerPaused ? "Reprendre" : "Pause"}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => focusTimer(5000)}>
+                              Focus timer
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => addTimeToQuestion(10)}>
+                              +10s
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => addTimeToQuestion(30)}>
+                              +30s
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => addTimeToQuestion(60)}>
+                              +60s
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => addTimeToQuestion(-10)}
+                              disabled={timeRemaining === null || timeRemaining <= 0}
+                            >
+                              -10s
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => addTimeToQuestion(-30)}
+                              disabled={timeRemaining === null || timeRemaining <= 0}
+                            >
+                              -30s
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => addTimeToQuestion(-60)}
+                              disabled={timeRemaining === null || timeRemaining <= 0}
+                            >
+                              -60s
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                     {currentQuestion && status === "active" && (
                       <Card className="border-primary/50">
                         <CardHeader className="pb-2">

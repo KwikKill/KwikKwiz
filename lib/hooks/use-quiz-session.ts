@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useSocket } from "@/components/socket-provider"
 import { useToast } from "@/hooks/use-toast"
 
@@ -64,7 +64,48 @@ export function useQuizSession(sessionId: string, isHost = false) {
   const [timerDuration, setTimerDuration] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [isTimerActive, setIsTimerActive] = useState(false)
+  const [isTimerPaused, setIsTimerPaused] = useState(false)
+  const [isTimerFocused, setIsTimerFocused] = useState(false)
+  const [timerStartTimeMs, setTimerStartTimeMs] = useState<number | null>(null)
+  const [timerModificationSeconds, setTimerModificationSeconds] = useState<number>(0)
+  const [pausedRemaining, setPausedRemaining] = useState<number | null>(null)
   const [allowAnswerEdit, setAllowAnswerEdit] = useState(false)
+  const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastTimeRemainingRef = useRef<number | null>(null)
+
+  const parseStartTimeMs = (value: any): number | null => {
+    if (value === null || value === undefined) return null
+    if (typeof value === "number" && Number.isFinite(value)) return value
+    if (typeof value === "string") {
+      const parsed = Date.parse(value)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+    return null
+  }
+
+  const computeRemainingSeconds = useCallback(
+    (params?: {
+      duration?: number | null
+      startTimeMs?: number | null
+      modificationSeconds?: number
+      timerPaused?: boolean
+      pausedRemaining?: number | null
+    }) => {
+      const duration = params?.duration ?? timerDuration
+      const startTime = params?.startTimeMs ?? timerStartTimeMs
+      const modification = params?.modificationSeconds ?? timerModificationSeconds
+      const paused = params?.timerPaused ?? isTimerPaused
+      const pausedRem = params?.pausedRemaining ?? pausedRemaining
+
+      if (!duration || duration <= 0 || !startTime) return null
+      if (paused) return typeof pausedRem === "number" ? pausedRem : null
+
+      const elapsed = Math.floor((Date.now() - startTime) / 1000)
+      const total = duration + modification
+      return Math.max(0, total - elapsed)
+    },
+    [timerDuration, timerStartTimeMs, timerModificationSeconds, isTimerPaused, pausedRemaining],
+  )
 
   const joinSession = useCallback(() => {
     if (socket && isConnected && sessionId) {
@@ -174,6 +215,36 @@ export function useQuizSession(sessionId: string, isHost = false) {
     [socket, isConnected, sessionId, isHost],
   )
 
+  const pauseTimer = useCallback(() => {
+    if (socket && isConnected && isHost) {
+      socket.emit("pause-timer", { sessionId })
+    }
+  }, [socket, isConnected, sessionId, isHost])
+
+  const resumeTimer = useCallback(() => {
+    if (socket && isConnected && isHost) {
+      socket.emit("resume-timer", { sessionId })
+    }
+  }, [socket, isConnected, sessionId, isHost])
+
+  const addTimeToQuestion = useCallback(
+    (seconds: number) => {
+      if (socket && isConnected && isHost) {
+        socket.emit("add-time", { sessionId, seconds })
+      }
+    },
+    [socket, isConnected, sessionId, isHost],
+  )
+
+  const focusTimer = useCallback(
+    (durationMs?: number) => {
+      if (socket && isConnected && isHost) {
+        socket.emit("focus-timer", { sessionId, durationMs })
+      }
+    },
+    [socket, isConnected, sessionId, isHost],
+  )
+
   const sendEmojiReaction = useCallback(
     (emoji: string) => {
       if (socket && isConnected) {
@@ -183,37 +254,42 @@ export function useQuizSession(sessionId: string, isHost = false) {
     [socket, isConnected, sessionId],
   )
 
-  // Timer effect
+  // Timer effect: compute remaining time from (duration + modification - elapsed)
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
 
-    if (isTimerActive && timeRemaining !== null && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev === null || prev <= 1) {
-            setIsTimerActive(false)
-            // Auto-submit if user hasn't submitted and time is up
-            if (!hasSubmitted && currentQuestion && !isHost && status === "active") {
-              setHasSubmitted(true)
-              toast({
-                title: "Time's up!",
-                description: "Time limit reached for this question",
-                variant: "destructive",
-              })
-            }
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    } else if (timeRemaining === 0) {
-      setIsTimerActive(false)
+    const recompute = () => {
+      const next = computeRemainingSeconds()
+      setTimeRemaining(next)
+      setIsTimerActive(typeof next === "number" && next > 0)
+    }
+
+    // Recompute immediately when inputs change
+    recompute()
+
+    if (!isTimerPaused && timerDuration && timerDuration > 0 && timerStartTimeMs) {
+      interval = setInterval(recompute, 1000)
     }
 
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [isTimerActive, timeRemaining, hasSubmitted, currentQuestion, isHost, toast, status])
+  }, [computeRemainingSeconds, isTimerPaused, timerDuration, timerStartTimeMs])
+
+  useEffect(() => {
+    lastTimeRemainingRef.current = timeRemaining
+  }, [timeRemaining])
+
+  useEffect(() => {
+    if (!hasSubmitted && currentQuestion && !isHost && status === "active" && timeRemaining === 0) {
+      setHasSubmitted(true)
+      toast({
+        title: "Time's up!",
+        description: "Time limit reached for this question",
+        variant: "destructive",
+      })
+    }
+  }, [hasSubmitted, currentQuestion, isHost, status, timeRemaining, toast])
 
   useEffect(() => {
     joinSession()
@@ -232,20 +308,17 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setAnswers(data.answers || [])
       setTimerDuration(data.timerDuration || null)
       setAllowAnswerEdit(!!data.allowAnswerEdit)
+      setIsTimerPaused(!!data.timerPaused)
+      setPausedRemaining(!!data.timerPaused && typeof data.timeRemaining === "number" ? data.timeRemaining : null)
+      setTimerStartTimeMs(parseStartTimeMs(data.questionStartTime))
+      setTimerModificationSeconds(
+        typeof data.timerModificationSeconds === "number" ? Math.trunc(data.timerModificationSeconds) : 0,
+      )
 
-      if (status === "correction") {
+      if (data.status === "correction") {
         setCorrectionQuestion(data.correctionQuestion || null)
         setCorrectionAnswers(data.correctionAnswers || [])
         setCurrentShownAnswer(data.currentShownAnswer || null)
-      }
-
-      // Set timer state if there's an active question with remaining time
-      if (data.timeRemaining !== null && data.timeRemaining !== undefined) {
-        setTimeRemaining(data.timeRemaining)
-        setIsTimerActive(data.timeRemaining > 0)
-      } else {
-        setTimeRemaining(null)
-        setIsTimerActive(false)
       }
     }
 
@@ -255,14 +328,27 @@ export function useQuizSession(sessionId: string, isHost = false) {
       setUserAnswer(null)
       setHasSubmitted(false)
 
+      const nextStart = parseStartTimeMs(data.questionStartTime)
+      const nextModification =
+        typeof data.timerModificationSeconds === "number" ? Math.trunc(data.timerModificationSeconds) : 0
+      const nextPaused = !!data.timerPaused
+
+      setTimerDuration(data.timerDuration || null)
+      setTimerStartTimeMs(nextStart)
+      setTimerModificationSeconds(nextModification)
+      setIsTimerPaused(nextPaused)
+      setPausedRemaining(nextPaused && typeof data.timeRemaining === "number" ? data.timeRemaining : null)
+
       // Start timer if duration is set
-      if (data.timerDuration && data.timerDuration > 0) {
-        setTimeRemaining(data.timeRemaining || data.timerDuration)
-        setIsTimerActive(true)
-      } else {
-        setTimeRemaining(null)
-        setIsTimerActive(false)
-      }
+      const nextRemaining = computeRemainingSeconds({
+        duration: data.timerDuration || null,
+        startTimeMs: nextStart,
+        modificationSeconds: nextModification,
+        timerPaused: nextPaused,
+        pausedRemaining: nextPaused && typeof data.timeRemaining === "number" ? data.timeRemaining : null,
+      })
+      setTimeRemaining(nextRemaining)
+      setIsTimerActive(typeof nextRemaining === "number" && nextRemaining > 0)
 
       // Track that this question was asked
       if (data.question?.id && !askedQuestions.includes(data.question.id)) {
@@ -272,6 +358,129 @@ export function useQuizSession(sessionId: string, isHost = false) {
 
     const handleTimerUpdate = (data: any) => {
       setTimerDuration(data.timerDuration)
+
+      if (!isHost) {
+        const duration = data.timerDuration
+        toast({
+          title: "Minuteur mis à jour",
+          description:
+            typeof duration === "number" && duration > 0
+              ? `Temps par question : ${duration}s`
+              : "Le minuteur a été désactivé",
+        })
+      }
+    }
+
+    const handleTimerPaused = (data: any) => {
+      setPausedRemaining(typeof data.timeRemaining === "number" ? data.timeRemaining : null)
+      setTimeRemaining(typeof data.timeRemaining === "number" ? data.timeRemaining : null)
+      setIsTimerPaused(true)
+      setIsTimerActive(false)
+
+      if (typeof data.timerModificationSeconds === "number") {
+        setTimerModificationSeconds(Math.trunc(data.timerModificationSeconds))
+      }
+      const nextStart = parseStartTimeMs(data.questionStartTime)
+      if (nextStart) setTimerStartTimeMs(nextStart)
+    }
+
+    const handleTimerResumed = (data: any) => {
+      setPausedRemaining(null)
+      setIsTimerPaused(false)
+
+      if (typeof data.timerModificationSeconds === "number") {
+        setTimerModificationSeconds(Math.trunc(data.timerModificationSeconds))
+      }
+
+      const nextStart = parseStartTimeMs(data.questionStartTime)
+      if (nextStart) setTimerStartTimeMs(nextStart)
+
+      const nextRemaining = computeRemainingSeconds({
+        startTimeMs: nextStart ?? timerStartTimeMs,
+        modificationSeconds:
+          typeof data.timerModificationSeconds === "number"
+            ? Math.trunc(data.timerModificationSeconds)
+            : timerModificationSeconds,
+        timerPaused: false,
+        pausedRemaining: null,
+      })
+
+      setTimeRemaining(nextRemaining)
+      setIsTimerActive(typeof nextRemaining === "number" && nextRemaining > 0)
+    }
+
+    const handleTimerExtended = (data: any) => {
+      if (typeof data.timerModificationSeconds === "number") {
+        setTimerModificationSeconds(Math.trunc(data.timerModificationSeconds))
+      } else if (typeof data.deltaSeconds === "number") {
+        setTimerModificationSeconds((prev) => prev + Math.trunc(data.deltaSeconds))
+      }
+
+      const nextStart = parseStartTimeMs(data.questionStartTime)
+      if (nextStart) setTimerStartTimeMs(nextStart)
+
+      const nextRemaining = computeRemainingSeconds({
+        startTimeMs: nextStart ?? timerStartTimeMs,
+        modificationSeconds:
+          typeof data.timerModificationSeconds === "number"
+            ? Math.trunc(data.timerModificationSeconds)
+            : timerModificationSeconds,
+        timerPaused: isTimerPaused,
+        pausedRemaining,
+      })
+
+      setTimeRemaining(nextRemaining)
+      setIsTimerActive(typeof nextRemaining === "number" && nextRemaining > 0)
+
+      if (isHost) return
+
+      const prevRemaining =
+        typeof data.previousRemaining === "number" ? data.previousRemaining : lastTimeRemainingRef.current
+
+      const deltaSecondsRaw =
+        typeof data.deltaSeconds === "number"
+          ? data.deltaSeconds
+          : typeof data.addedSeconds === "number"
+            ? data.addedSeconds
+            : 0
+
+      const deltaSeconds = Number.isFinite(deltaSecondsRaw) ? Math.trunc(deltaSecondsRaw) : 0
+
+      if (prevRemaining === 0 && (nextRemaining ?? 0) > 0) {
+        setHasSubmitted(false)
+        toast({
+          title: "Question relancée",
+          description:
+            deltaSeconds !== 0
+              ? `Temps modifié (${deltaSeconds > 0 ? "+" : ""}${deltaSeconds}s). Vous pouvez répondre à nouveau.`
+              : "Vous pouvez répondre à nouveau.",
+        })
+        return
+      }
+
+      if (deltaSeconds > 0) {
+        toast({
+          title: "Temps ajouté",
+          description: `+${deltaSeconds}s sur cette question`,
+        })
+      } else if (deltaSeconds < 0) {
+        toast({
+          title: "Temps retiré",
+          description: `${deltaSeconds}s sur cette question`,
+        })
+      }
+    }
+
+    const handleTimerFocused = (data: any) => {
+      const durationMs = Math.max(1000, Math.min(15000, Math.floor(data.durationMs || 5000)))
+
+      setIsTimerFocused(true)
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current)
+      }
+      focusTimeoutRef.current = setTimeout(() => {
+        setIsTimerFocused(false)
+      }, durationMs)
     }
 
     const handleAnswerEditUpdated = (data: any) => {
@@ -386,6 +595,10 @@ export function useQuizSession(sessionId: string, isHost = false) {
     socket.on("session-state", handleSessionState)
     socket.on("new-question", handleNewQuestion)
     socket.on("timer-updated", handleTimerUpdate)
+    socket.on("timer-paused", handleTimerPaused)
+    socket.on("timer-resumed", handleTimerResumed)
+    socket.on("timer-extended", handleTimerExtended)
+    socket.on("timer-focused", handleTimerFocused)
     socket.on("answer-edit-updated", handleAnswerEditUpdated)
     socket.on("participant-joined", handleParticipantJoined)
     socket.on("answer-received", handleAnswerReceived)
@@ -402,6 +615,10 @@ export function useQuizSession(sessionId: string, isHost = false) {
       socket.off("session-state", handleSessionState)
       socket.off("new-question", handleNewQuestion)
       socket.off("timer-updated", handleTimerUpdate)
+      socket.off("timer-paused", handleTimerPaused)
+      socket.off("timer-resumed", handleTimerResumed)
+      socket.off("timer-extended", handleTimerExtended)
+      socket.off("timer-focused", handleTimerFocused)
       socket.off("answer-edit-updated", handleAnswerEditUpdated)
       socket.off("participant-joined", handleParticipantJoined)
       socket.off("answer-received", handleAnswerReceived)
@@ -433,6 +650,8 @@ export function useQuizSession(sessionId: string, isHost = false) {
     timerDuration,
     timeRemaining,
     isTimerActive,
+    isTimerPaused,
+    isTimerFocused,
     allowAnswerEdit,
     joinSession,
     selectQuestion,
@@ -444,6 +663,10 @@ export function useQuizSession(sessionId: string, isHost = false) {
     gradeCorrectionAnswer,
     updateTimerDuration,
     updateAllowAnswerEdit,
+    pauseTimer,
+    resumeTimer,
+    addTimeToQuestion,
+    focusTimer,
     sendEmojiReaction,
   }
 }

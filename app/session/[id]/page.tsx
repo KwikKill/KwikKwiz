@@ -62,6 +62,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     currentShownAnswer,
     timeRemaining,
     isTimerActive,
+    isTimerPaused,
+    isTimerFocused,
     timerDuration,
     allowAnswerEdit,
     joinSession,
@@ -138,7 +140,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   const canEditAnswer =
     !isHost &&
     (timeRemaining === null || timeRemaining > 0) &&
-    (!hasSubmitted || allowAnswerEdit)
+    (!hasSubmitted || allowAnswerEdit) &&
+    !isTimerPaused
 
   const currentAnswerValue = currentQuestion
     ? currentQuestion.type === "DRAG_TO_ORDER"
@@ -312,7 +315,9 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   const renderActiveSession = () => (
     <div className="max-w-4xl mx-auto space-y-6">
       {currentQuestion ? (
-        <Card className="border-primary/50">
+        <Card
+          className={`border-primary/50 ${isTimerPaused && !isHost ? "ring-4 ring-red-500" : ""} ${isTimerFocused && !isHost ? "ring-4 ring-red-500" : ""}`}
+        >
           <CardHeader>
             <div className="flex justify-between items-center">
               <Badge variant="outline">
@@ -324,6 +329,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
               </Badge>
 
               <div className="flex items-center gap-2">
+                {isTimerPaused && <Badge variant="destructive">Pause</Badge>}
+                {isTimerFocused && !isTimerPaused && <Badge variant="destructive">Focus</Badge>}
                 {isTimerActive && timeRemaining !== null && (
                   <Badge
                     variant={timeRemaining <= 10 ? "destructive" : "secondary"}
@@ -356,6 +363,17 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           <CardContent className="pt-6">
             {!isHost && (
               <>
+                {(isTimerPaused || isTimerFocused) && (
+                  <div className="mb-4 rounded-md border-2 border-red-500 bg-muted/30 p-3 flex items-center justify-between gap-4">
+                    <div className="text-xs uppercase tracking-widest text-red-500">
+                      {isTimerPaused ? "Minuteur en pause" : "Regardez le temps restant !"}
+                    </div>
+                    <div className="text-2xl font-bold tabular-nums">
+                      {timeRemaining !== null ? formatTime(timeRemaining) : "--:--"}
+                    </div>
+                  </div>
+                )}
+
                 {currentQuestion.type === "MULTIPLE_CHOICE" ? (
                   <RadioGroup
                     value={selectedAnswer}
