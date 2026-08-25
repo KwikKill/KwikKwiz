@@ -1,0 +1,3 @@
+kwikkwiz.somi.{$WEBSITE_HOST} {
+	reverse_proxy kwikkwiz:3000
+}
